@@ -7,7 +7,9 @@ const ocru = new Ocru(document.getElementById('canvas'), 60)
 document.getElementById('canvas').focus()
 const input = ocru.input
 
-const gravity = 0.3
+let gravity = 0.3
+let timeScale = 1
+
 class Guy extends Rectangle.Events() {
     onCreate({ dog }) {
         console.log('guy created', dog)
@@ -29,10 +31,12 @@ class Guy extends Rectangle.Events() {
         //Y
         let onGround = false
 
-        if (this.ridingPlatform) { //riding a platform
-            if (this.x + this.width < this.ridingPlatform.x || this.x > this.ridingPlatform.x + this.ridingPlatform.width) {
+        if (this.ridingPlatform) {
+            if (this.x + this.width < this.ridingPlatform.x - this.ridingPlatform.xspeed || this.x > this.ridingPlatform.x + this.ridingPlatform.width - this.ridingPlatform.xspeed) {
                 this.yspeed += this.ridingPlatform.yspeed
+                this.xspeed += this.ridingPlatform.xspeed
                 this.ridingPlatform = null
+                this.y += this.yspeed
             } else {
                 this.y = this.ridingPlatform.y - this.height
                 onGround = true
@@ -65,11 +69,23 @@ class Guy extends Rectangle.Events() {
                 this.yspeed = 0
             }
             this.ridingPlatform = null
+        } else {
+            this.y += 1
+            if (this.isTouching(CollisionGrid)) {
+                onGround = true
+                this.yspeed = 0
+                this.ridingPlatform = null
+            }
+            this.y -=1
         }
 
         if (onGround) {
             if (input.keyDown('arrowUp')) {
                 this.yspeed = -10
+                if (this.ridingPlatform) {
+                    this.yspeed += this.ridingPlatform.yspeed
+                    this.xspeed += this.ridingPlatform.xspeed
+                }
                 this.ridingPlatform = null
             } else {
                 this.yspeed = 0
@@ -79,14 +95,25 @@ class Guy extends Rectangle.Events() {
         }
 
         //X
-        if (input.keyDown('arrowright')) {
-            this.xspeed += (5 - this.xspeed) * 0.2
-        }
-        else if (input.keyDown('arrowleft')) {
-            this.xspeed += (-5 - this.xspeed) * 0.2
-        }
-        else {
-            this.xspeed += -this.xspeed * 0.3
+        
+        if (onGround) { //controls behave differently on the ground
+            if (input.keyDown('arrowright')) {
+                this.xspeed += (5 - this.xspeed) * 0.2
+            }
+            else if (input.keyDown('arrowleft')) {
+                this.xspeed += (-5 - this.xspeed) * 0.2
+            } else {
+                this.xspeed += -this.xspeed * 0.4 //slow down faster on ground
+            }
+        } else {
+            if (input.keyDown('arrowright')) {
+                this.xspeed += (5 - this.xspeed) * 0.03
+            }
+            else if (input.keyDown('arrowleft')) {
+                this.xspeed += (-5 - this.xspeed) * 0.03
+            } else {
+                this.xspeed += -this.xspeed * 0.01 //slow down faster on ground
+            }
         }
 
         this.x += this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)
@@ -109,7 +136,7 @@ class Guy extends Rectangle.Events() {
 }
 
 class Platform extends Rectangle.Events() {
-    onCreate({ xspeed = 1, yspeed = -5, range = {} } = {}) {
+    onCreate({ xspeed = 10, yspeed = 0, range = {} } = {}) {
         this.xspeed = xspeed
         this.yspeed = yspeed
         this.range = range
@@ -123,16 +150,19 @@ class Platform extends Rectangle.Events() {
         this.x += this.xspeed
         this.y += this.yspeed
 
-        this.yspeed += 0.03
+        //this.yspeed += 0.03
     }
 }
 
 const gridArray = [
-    [0,0,0,0,0,0,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,0,0,0],
     [1],
     [0,0,0,0,0,0],
     [0,0,0,0,0],
-    [1,1,1,0,0,0,0,1]
+    [1,1,1,0,0,0,0,0,0,1,1,1,1,1],
+    [0,0,0,1],
+    [],
+    [0,0,1,1,1,1,1,1,1]
 ]
 
 class CollisionGrid extends Drawable {
@@ -180,7 +210,7 @@ class MainScene extends LoadEventScene(Scene) {
         this.text = this.addDrawable(new TextLine({ text: 'hello', height: 40 }))
         this.text.depth = 100
 
-        this.platform = this.addDrawable(new Platform({ x: 200, y: 428 }))
+        this.platform = this.addDrawable(new Platform({ x: -200, y: 228 }))
     }
     
     onLoadDrawStart() {
@@ -213,5 +243,5 @@ document.addEventListener('keydown', e => {
         ocru.play(scene)
 
     if (e.key === 'v')
-        scene.addDrawable(new Platform({ x: 200, y: 428 }))
+        scene.addDrawable(new Platform({ x: -200, y: 228 }))
 })
