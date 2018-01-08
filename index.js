@@ -17,74 +17,37 @@ class Guy extends Rectangle.Events() {
         this.yspeed = 0
         this.xspeed = 0
 
-        this.xspeedBase = 0
-        this.yspeedBase = 0
-
+        this.ridingPlatform = null
     }
 
     onDraw() {
-        if (input.keyDown('arrowright')) {
-            this.xspeed += (4 - this.xspeed) * 0.2
-        }
-        else if (input.keyDown('arrowleft')) {
-            this.xspeed += (-4 - this.xspeed) * 0.2
-        }
-        else {
-            this.xspeed = 0
-        }
-
         const prev = {
             x: this.x,
             y: this.y
         }
-
-        //TODO: support for vertically moving platforms, need pre collision checking
-        //we assume there is no collisions before modifying the y
-        this.y += this.yspeed + this.yspeedBase
-
+        
+        //Y
         let onGround = false
 
-        if (this.yspeedBase > 0) { //riding a platform moving down
-            let good = !this.isTouching(Platform)
-            this.y += 1
-            let platformCollision = this.isTouching(Platform)
-            good = good && platformCollision
-            if (good) {
-                this.xspeedBase = platformCollision[0].xspeed
-                this.yspeedBase = platformCollision[0].yspeed
-                onGround = true
+        if (this.ridingPlatform) { //riding a platform
+            if (this.x + this.width < this.ridingPlatform.x || this.x > this.ridingPlatform.x + this.ridingPlatform.width) {
+                this.yspeed += this.ridingPlatform.yspeed
+                this.ridingPlatform = null
             } else {
-                this.xspeedBase = 0
-                this.yspeedBase = 0
-            }
-            this.y -= 1
-        } else if (this.yspeedBase < 0) { //riding a platform moving up
-            let good = !this.isTouching(Platform)
-            this.y += 1
-            let platformCollision = this.isTouching(Platform)
-            good = good && platformCollision
-            if (good) {
-                this.xspeedBase = platformCollision[0].xspeed
-                this.yspeedBase = platformCollision[0].yspeed
+                this.y = this.ridingPlatform.y - this.height
                 onGround = true
-            } else {
-                this.xspeedBase = 0
-                this.yspeedBase = 0
             }
-            this.y -= 1
         } else {
+            this.y += this.yspeed
+
             let platformCollision = this.isTouching(Platform)
             if (platformCollision && platformCollision[0].y - platformCollision[0].yspeed + 1 >= prev.y + this.height) {
-                console.log('on platform')
-                for (; this.y >= prev.y; this.y--) 
-                    if (!this.isTouching(Platform)) break
+                this.ridingPlatform = platformCollision[0]
 
-                this.xspeedBase = platformCollision[0].xspeed
-                this.yspeedBase = platformCollision[0].yspeed
+                for (; this.y >= prev.y; this.y--) 
+                    if (!this.isTouching(this.ridingPlatform)) break
+
                 onGround = true
-            } else {
-                this.xspeedBase = 0
-                this.yspeedBase = 0
             }
         }
 
@@ -101,11 +64,13 @@ class Guy extends Rectangle.Events() {
                 
                 this.yspeed = 0
             }
+            this.ridingPlatform = null
         }
 
         if (onGround) {
             if (input.keyDown('arrowUp')) {
                 this.yspeed = -10
+                this.ridingPlatform = null
             } else {
                 this.yspeed = 0
             }
@@ -113,19 +78,27 @@ class Guy extends Rectangle.Events() {
             this.yspeed += gravity
         }
 
+        //X
+        if (input.keyDown('arrowright')) {
+            this.xspeed += (5 - this.xspeed) * 0.2
+        }
+        else if (input.keyDown('arrowleft')) {
+            this.xspeed += (-5 - this.xspeed) * 0.2
+        }
+        else {
+            this.xspeed += -this.xspeed * 0.3
+        }
 
-        //we assume there is no collisions before modifying the x
-
-        this.x += this.xspeed + this.xspeedBase
+        this.x += this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)
 
         //you can walk thru moving platforms so there is no x collisions with them
 
         if (this.isTouching(CollisionGrid)) {
-            if (this.xspeed + this.xspeedBase > 0) {
+            if (this.x - prev.x > 0) {
                 for (; this.x >= prev.x; this.x--)
                     if (!this.isTouching(CollisionGrid)) break
             
-            } else if (this.xspeed + this.xspeedBase < 0) {
+            } else if (this.x - prev.x < 0) {
                 for (; this.x <= prev.x; this.x++)
                     if (!this.isTouching(CollisionGrid)) break
             }
@@ -155,7 +128,7 @@ class Platform extends Rectangle.Events() {
 }
 
 const gridArray = [
-    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,1,0],
     [1],
     [0,0,0,0,0,0],
     [0,0,0,0,0],
@@ -200,7 +173,7 @@ class CollisionGrid extends Drawable {
 
 class MainScene extends LoadEventScene(Scene) {
     onCreate() {
-        console.log('created')
+        console.log('created', this)
         
         this.grid = this.addDrawable(new CollisionGrid(gridArray, 64))
         this.guy = this.addDrawable(new Guy({ create: { dog: 1 }, x: 100, y: 140 }))
@@ -211,14 +184,14 @@ class MainScene extends LoadEventScene(Scene) {
     }
     
     onLoadDrawStart() {
-        console.log('load draw')
     }
     
     onReady() {
-        console.log('ready')
     }
     
     onDrawStart() {
+        this.default_view.sx += ((this.guy.x - 300) - this.default_view.sx) * 0.05
+        this.default_view.sy += ((this.guy.y - 200) - this.default_view.sy) * 0.05
     }
     
     onDrawEnd() {
