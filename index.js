@@ -10,7 +10,7 @@ const input = ocru.input
 let gravity = 0.3
 let timeScale = 1
 
-class Guy extends Rectangle.Events() {
+class Guy extends Rectangle {
     onCreate({ dog }) {
         console.log('guy created', dog)
         this.height = 64
@@ -135,8 +135,8 @@ class Guy extends Rectangle.Events() {
     }
 }
 
-class Platform extends Rectangle.Events() {
-    onCreate({ xspeed = 10, yspeed = 0, range = {} } = {}) {
+class Platform extends Rectangle {
+    onCreate({ xspeed = 20, yspeed = 0, range = {} } = {}) {
         this.xspeed = xspeed
         this.yspeed = yspeed
         this.range = range
@@ -149,8 +149,123 @@ class Platform extends Rectangle.Events() {
     onDraw() {
         this.x += this.xspeed
         this.y += this.yspeed
+    }
+}
 
-        //this.yspeed += 0.03
+class Backpack extends Platform {
+    onCreate({ carrier } = {}) {
+        super.onCreate(arguments[0])
+
+        this.ridingPlatform = null
+
+        this._state = this.backbackState
+        this.carrier = carrier
+    }
+
+    onDraw() {
+        if (input.keyPressed('arrowDown')) {
+            this._state = this.platformCollisionState
+        }
+        if (this.carrier.ridingPlatform === this && input.keyPressed('arrowDown')) {
+            this._state = this.backbackState
+            this.carrier.ridingPlatform = null
+        } 
+
+        this._state()
+    }
+
+    backbackState() {
+        this.x = this.carrier.x - 10
+        this.y = this.carrier.y - 10
+    }
+
+    platformCollisionState() {
+        const prev = {
+            x: this.x,
+            y: this.y
+        }
+        
+        //Y
+        let onGround = false
+
+        if (this.ridingPlatform) {
+            if (this.x + this.width < this.ridingPlatform.x - this.ridingPlatform.xspeed || this.x > this.ridingPlatform.x + this.ridingPlatform.width - this.ridingPlatform.xspeed) {
+                this.yspeed += this.ridingPlatform.yspeed
+                this.xspeed += this.ridingPlatform.xspeed
+                this.ridingPlatform = null
+                this.y += this.yspeed
+            } else {
+                this.y = this.ridingPlatform.y - this.height
+                onGround = true
+            }
+        } else {
+            this.y += this.yspeed
+
+            let platformCollision = this.isTouching(Platform)
+            if (platformCollision && platformCollision[0].y - platformCollision[0].yspeed + 1 >= prev.y + this.height) {
+                this.ridingPlatform = platformCollision[0]
+
+                for (; this.y >= prev.y; this.y--) 
+                    if (!this.isTouching(this.ridingPlatform)) break
+
+                onGround = true
+            }
+        }
+
+        if (this.isTouching(CollisionGrid)) {
+            if (this.y - prev.y > 0) {
+                for (; this.y >= prev.y; this.y--)
+                    if (!this.isTouching(CollisionGrid)) break
+                
+                onGround = true
+
+            } else if (this.y - prev.y < 0) {
+                for (; this.y <= prev.y; this.y++)
+                    if (!this.isTouching(CollisionGrid)) break
+                
+                this.yspeed = 0
+            }
+            this.ridingPlatform = null
+        } else {
+            this.y += 1
+            if (this.isTouching(CollisionGrid)) {
+                onGround = true
+                this.yspeed = 0
+                this.ridingPlatform = null
+            }
+            this.y -=1
+        }
+
+        if (onGround) {
+            this.yspeed = 0
+        } else {
+            this.yspeed += gravity
+        }
+
+        //X
+        
+        if (onGround) { 
+            this.xspeed += -this.xspeed * 0.1 //slow down faster on ground
+        } else {
+            this.xspeed += -this.xspeed * 0.01 //slow down slower in air
+        }
+
+        this.x += this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)
+
+        //you can walk thru moving platforms so there is no x collisions with them
+
+        if (this.isTouching(CollisionGrid)) {
+            if (this.x - prev.x > 0) {
+                for (; this.x >= prev.x; this.x--)
+                    if (!this.isTouching(CollisionGrid)) break
+            
+            } else if (this.x - prev.x < 0) {
+                for (; this.x <= prev.x; this.x++)
+                    if (!this.isTouching(CollisionGrid)) break
+            }
+            
+            this.xspeed = 0
+        }
     }
 }
 
@@ -211,6 +326,8 @@ class MainScene extends LoadEventScene(Scene) {
         this.text.depth = 100
 
         this.platform = this.addDrawable(new Platform({ x: -200, y: 228 }))
+
+        this.backpack = this.addDrawable(new Backpack({ create: { carrier: this.guy }}))
     }
     
     onLoadDrawStart() {
@@ -244,4 +361,7 @@ document.addEventListener('keydown', e => {
 
     if (e.key === 'v')
         scene.addDrawable(new Platform({ x: -200, y: 228 }))
+
+    if (e.key === 'b')
+        console.log(scene)
 })
