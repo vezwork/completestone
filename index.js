@@ -36,13 +36,13 @@ class Guy extends Rectangle {
                 this.yspeed += this.ridingPlatform.yspeed
                 this.xspeed += this.ridingPlatform.xspeed
                 this.ridingPlatform = null
-                this.y += this.yspeed
+                this.y += this.yspeed * timeScale
             } else {
                 this.y = this.ridingPlatform.y - this.height
                 onGround = true
             }
         } else {
-            this.y += this.yspeed
+            this.y += this.yspeed * timeScale
 
             let platformCollision = this.isTouching(Platform)
             if (platformCollision && platformCollision[0].y - platformCollision[0].yspeed + 1 >= prev.y + this.height) {
@@ -91,32 +91,32 @@ class Guy extends Rectangle {
                 this.yspeed = 0
             }
         } else {
-            this.yspeed += gravity
+            this.yspeed += gravity * timeScale
         }
 
         //X
         
         if (onGround) { //controls behave differently on the ground
             if (input.keyDown('arrowright')) {
-                this.xspeed += (5 - this.xspeed) * 0.2
+                this.xspeed += (5 - this.xspeed) * 0.2 * timeScale
             }
             else if (input.keyDown('arrowleft')) {
-                this.xspeed += (-5 - this.xspeed) * 0.2
+                this.xspeed += (-5 - this.xspeed) * 0.2 * timeScale
             } else {
-                this.xspeed += -this.xspeed * 0.4 //slow down faster on ground
+                this.xspeed += -this.xspeed * 0.4 * timeScale//slow down faster on ground
             }
         } else {
             if (input.keyDown('arrowright')) {
-                this.xspeed += (5 - this.xspeed) * 0.03
+                this.xspeed += (5 - this.xspeed) * 0.03 * timeScale
             }
             else if (input.keyDown('arrowleft')) {
-                this.xspeed += (-5 - this.xspeed) * 0.03
+                this.xspeed += (-5 - this.xspeed) * 0.03 * timeScale
             } else {
-                this.xspeed += -this.xspeed * 0.01 //slow down faster on ground
+                this.xspeed += -this.xspeed * 0.01 * timeScale//slow down faster on ground
             }
         }
 
-        this.x += this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)
+        this.x += (this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)) * timeScale
 
         //you can walk thru moving platforms so there is no x collisions with them
 
@@ -136,7 +136,7 @@ class Guy extends Rectangle {
 }
 
 class Platform extends Rectangle {
-    onCreate({ xspeed = 20, yspeed = 0, range = {} } = {}) {
+    onCreate({ xspeed = 0, yspeed = 0, range = {} } = {}) {
         this.xspeed = xspeed
         this.yspeed = yspeed
         this.range = range
@@ -147,8 +147,8 @@ class Platform extends Rectangle {
     }
 
     onDraw() {
-        this.x += this.xspeed
-        this.y += this.yspeed
+        this.x += this.xspeed * timeScale
+        this.y += this.yspeed * timeScale
     }
 }
 
@@ -164,6 +164,8 @@ class Backpack extends Platform {
 
     onDraw() {
         if (input.keyPressed('arrowDown')) {
+            this.xspeed = this.carrier.xspeed
+            this.yspeed = this.carrier.yspeed
             this._state = this.platformCollisionState
         }
         if (this.carrier.ridingPlatform === this && input.keyPressed('arrowDown')) {
@@ -175,8 +177,13 @@ class Backpack extends Platform {
     }
 
     backbackState() {
-        this.x = this.carrier.x - 10
-        this.y = this.carrier.y - 10
+        if (this.carrier.xspeed > 0) {
+            this.x += ((this.carrier.x - 10) - this.x) * 0.3 * timeScale
+            this.y += ((this.carrier.y - 10) - this.y) * 0.3 * timeScale
+        } else {
+            this.x += ((this.carrier.x + 10) - this.x) * 0.3 * timeScale
+            this.y += ((this.carrier.y - 10) - this.y) * 0.3 * timeScale
+        }
     }
 
     platformCollisionState() {
@@ -193,13 +200,13 @@ class Backpack extends Platform {
                 this.yspeed += this.ridingPlatform.yspeed
                 this.xspeed += this.ridingPlatform.xspeed
                 this.ridingPlatform = null
-                this.y += this.yspeed
+                this.y += this.yspeed * timeScale
             } else {
                 this.y = this.ridingPlatform.y - this.height
                 onGround = true
             }
         } else {
-            this.y += this.yspeed
+            this.y += this.yspeed * timeScale
 
             let platformCollision = this.isTouching(Platform)
             if (platformCollision && platformCollision[0].y - platformCollision[0].yspeed + 1 >= prev.y + this.height) {
@@ -239,7 +246,7 @@ class Backpack extends Platform {
         if (onGround) {
             this.yspeed = 0
         } else {
-            this.yspeed += gravity
+            this.yspeed += gravity * timeScale
         }
 
         //X
@@ -250,7 +257,7 @@ class Backpack extends Platform {
             this.xspeed += -this.xspeed * 0.01 //slow down slower in air
         }
 
-        this.x += this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)
+        this.x += (this.xspeed + ((this.ridingPlatform) ? this.ridingPlatform.xspeed : 0)) * timeScale
 
         //you can walk thru moving platforms so there is no x collisions with them
 
@@ -337,8 +344,8 @@ class MainScene extends LoadEventScene(Scene) {
     }
     
     onDrawStart() {
-        this.default_view.sx += ((this.guy.x - 300) - this.default_view.sx) * 0.05
-        this.default_view.sy += ((this.guy.y - 200) - this.default_view.sy) * 0.05
+        this.default_view.sx += ((this.guy.x - 300) - this.default_view.sx) * 0.05 * timeScale
+        this.default_view.sy += ((this.guy.y - 200) - this.default_view.sy) * 0.05 * timeScale
     }
     
     onDrawEnd() {
@@ -364,4 +371,9 @@ document.addEventListener('keydown', e => {
 
     if (e.key === 'b')
         console.log(scene)
+
+    if (e.key === 's')
+        timeScale += (0 - timeScale) * 0.5
+    if (e.key === 'w')
+        timeScale += (4 - timeScale) * 0.5
 })
