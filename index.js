@@ -3,6 +3,7 @@
 import { Rectangle, Drawable, TextLine } from './Ocru/src/drawable.js'
 import { Ocru, LoadEventScene, Scene } from './Ocru/src/lib.js'
 
+const c = document.getElementById('canvas')
 const ocru = new Ocru(document.getElementById('canvas'), 60)
 document.getElementById('canvas').focus()
 const input = ocru.input
@@ -160,13 +161,15 @@ class Backpack extends Platform {
 
         this._state = this.backbackState
         this.carrier = carrier
+        this._failedLaunch = false
     }
 
     onDraw() {
         if (input.keyPressed('arrowDown')) {
             this.xspeed = this.carrier.xspeed
-            this.yspeed = this.carrier.yspeed
+            this.yspeed = this.carrier.yspeed - 10
             this._state = this.platformCollisionState
+            this._failedLaunch = this.yspeed > -1
         }
         if (this.carrier.ridingPlatform === this && input.keyPressed('arrowDown')) {
             this._state = this.backbackState
@@ -186,12 +189,21 @@ class Backpack extends Platform {
         }
     }
 
+    launchState() {
+
+    }
+
     platformCollisionState() {
         const prev = {
             x: this.x,
             y: this.y
         }
-        
+        if (!this._failedLaunch && this.yspeed > -1 && this.yspeed < 1) {
+            timeScale += (0.05 - timeScale) * 0.3
+        } else {
+            timeScale += (1 - timeScale) * 0.3
+        }
+
         //Y
         let onGround = false
 
@@ -245,6 +257,7 @@ class Backpack extends Platform {
 
         if (onGround) {
             this.yspeed = 0
+            this._failedLaunch = true
         } else {
             this.yspeed += gravity * timeScale
         }
@@ -262,6 +275,7 @@ class Backpack extends Platform {
         //you can walk thru moving platforms so there is no x collisions with them
 
         if (this.isTouching(CollisionGrid)) {
+            this._failedLaunch = true
             if (this.x - prev.x > 0) {
                 for (; this.x >= prev.x; this.x--)
                     if (!this.isTouching(CollisionGrid)) break
@@ -283,7 +297,7 @@ const gridArray = [
     [0,0,0,0,0],
     [1,1,1,0,0,0,0,0,0,1,1,1,1,1],
     [0,0,0,1],
-    [],
+    [0,0,0,0,0,0,0,0,0,0,1],
     [0,0,1,1,1,1,1,1,1]
 ]
 
@@ -335,6 +349,9 @@ class MainScene extends LoadEventScene(Scene) {
         this.platform = this.addDrawable(new Platform({ x: -200, y: 228 }))
 
         this.backpack = this.addDrawable(new Backpack({ create: { carrier: this.guy }}))
+
+        this.viewPlayerX = 0
+        this.viewPlayerY = 0
     }
     
     onLoadDrawStart() {
@@ -344,8 +361,33 @@ class MainScene extends LoadEventScene(Scene) {
     }
     
     onDrawStart() {
-        this.default_view.sx += ((this.guy.x - 300) - this.default_view.sx) * 0.05 * timeScale
-        this.default_view.sy += ((this.guy.y - 200) - this.default_view.sy) * 0.05 * timeScale
+        this.viewPlayerX
+        this.viewPlayerY 
+
+        this.viewPlayerX = this.guy.x - 300
+        this.viewPlayerY = this.guy.y - 200 
+
+        const viewWidth = (this.default_view.width)/2
+        const viewHeight = (this.default_view.height)/2
+
+        const viewCenterX = this.viewPlayerX + viewWidth
+        const viewCenterY = this.viewPlayerY + viewHeight
+
+        const backpackToCenterX = Math.abs(this.backpack.x - viewCenterX) 
+        const backpackToCenterY = Math.abs(this.backpack.y - viewCenterY)
+        if (backpackToCenterX > this.default_view.width/2 || backpackToCenterY > this.default_view.height/2) {
+            this.default_view.zoomX += (0.6 - this.default_view.zoomX) * 0.03
+            this.default_view.zoomY += (0.6 - this.default_view.zoomY) * 0.03
+            if (this.backpack.y - viewCenterY < this.default_view.width/2) 
+                this.default_view.sy += ((this.backpack.y - 25) - this.default_view.sy) * 0.3 * timeScale
+
+            
+        } else {
+            this.default_view.zoomX += (1 - this.default_view.zoomX) * 0.03
+            this.default_view.zoomY += (1 - this.default_view.zoomY) * 0.03
+            this.default_view.sy += (this.viewPlayerY - this.default_view.sy) * 0.05 * timeScale
+        }
+        this.default_view.sx += (this.viewPlayerX - this.default_view.sx)* 0.05 * timeScale
     }
     
     onDrawEnd() {
