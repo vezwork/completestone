@@ -1,4 +1,6 @@
-export { Drawable, Rectangle, TextLine, SpriteSheet, Sprite, DrawableCollectionMixin, Layer, Group }
+'use strict'
+
+export { Drawable, Rectangle, TextLine, SpriteSheet, Sprite, View, Group, LoadGroup, Scene }
 
 //Drawable interface
 class Drawable {
@@ -12,6 +14,7 @@ class Drawable {
                 blendmode = 'source-over', 
                 scale = { x: 1, y: 1 }, 
                 origin = { x: undefined, y: undefined },
+                depth = 0,
                 create = {}
             } = {}) {
 
@@ -29,10 +32,14 @@ class Drawable {
         
         this.scale = this.scale || scale
         this.origin = this.origin || origin
+
+        this.depth = this.depth || depth
     }
 
+    onFrame() {}
+
     draw(ctx) {
-        if (this.onDraw) this.onDraw()
+        this.onFrame()
 
         ctx.save()
         //handle opacity
@@ -53,7 +60,7 @@ class Drawable {
         //ctx.fillStyle='blue'
         //ctx.fillRect(this.x,this.y,this.width,this.height)
 
-        this._draw(ctx)
+        this.onDraw(ctx)
 
         ctx.restore()
     }
@@ -115,7 +122,7 @@ class Drawable {
 
             return cur !== undefined && cur.isTouching(this, touchee)
         }
-        throw new TypeError("ParameterError: touchee is not a valid collision object")
+        throw new TypeError('ParameterError: touchee is not a valid collision object')
     }
 
     getRealDimensions() {
@@ -170,7 +177,7 @@ class Rectangle extends Drawable {
         this.color = (this.color || color)+''
     }
     
-    _draw(ctx) {
+    onDraw(ctx) {
         ctx.fillStyle = this.color
         ctx.fillRect(0,0,this.width|0,this.height|0)
     }
@@ -188,11 +195,11 @@ class TextLine extends Drawable {
         this.color = this.color || color+''
     }
     
-    _draw(ctx) {
-        ctx.font = this.height + "px " + this.font
+    onDraw(ctx) {
+        ctx.font = this.height + 'px ' + this.font
         ctx.fillStyle = this.color
         
-        ctx.textBaseline = "top"
+        ctx.textBaseline = 'top'
         ctx.fillText(this.text, 0, 0, this.width)
     }
 } 
@@ -209,7 +216,7 @@ class SpriteSheet extends Drawable {
         const opts = arguments[0] || {}
 
         if (image.naturalHeight === 0)
-            throw new TypeError("ParameterError: image has no source or hasn't loaded yet!")
+            throw new TypeError('ParameterError: image has no source or hasn\'t loaded yet!')
 
         if (opts.width === undefined) opts.width = frameWidth
         if (opts.height === undefined) opts.height = frameHeight
@@ -224,7 +231,7 @@ class SpriteSheet extends Drawable {
         //this.subimageCount = subimageCount|0 || this._imagesPerColumn * this._imagesPerRow
     }
 
-    _draw(ctx) {
+    onDraw(ctx) {
         ctx.drawImage(this.image, 
                       this._getFrameX(this.subimage)+this.crop.x|0, 
                       this._getFrameY(this.subimage)+this.crop.y|0, 
@@ -256,7 +263,7 @@ class Sprite extends Drawable {
         const opts = arguments[0] || {}
         
         if (image.naturalHeight === 0)
-            throw new TypeError("ParameterError: image has no source or hasn't loaded yet!")
+            throw new TypeError('ParameterError: image has no source or hasn\'t loaded yet!')
         
         if (opts.width === undefined) opts.width = image.naturalWidth
         if (opts.height === undefined) opts.height = image.naturalHeight
@@ -267,7 +274,7 @@ class Sprite extends Drawable {
         this.crop = this.crop || crop
     }
     
-    _draw(ctx) {
+    onDraw(ctx) {
         ctx.drawImage(this.image, 
                       this.crop.x|0,
                       this.crop.y|0,
@@ -281,117 +288,108 @@ class Sprite extends Drawable {
     }
 }
 
-const DrawableCollectionMixin = Base => class extends Base {
-    constructor() {
-        super(...arguments)
-     
-        this._drawableArr = []
-        this._resolutionQueue = []
-    }
-    
-    addDrawable(drawable, depth=0) {
-        if (!drawable)
-            throw new TypeError("Parametererror: drawable required!")
-        if (!(drawable instanceof Drawable))
-            throw new TypeError("Parametererror: drawable must be an instance of Drawable!")
-        if (drawable._rl_depth != undefined)
-            throw new Error("drawable is already registered to a scene!")
+//could be extended to support rotation, smoothing, background color
+class View extends Drawable {
+    constructor({
+        viewing = null,
+        source: {
+            x = 0, 
+            y = 0, 
+            width, //when undefined use this.width
+            height, //when undefined use this.height
+            rot = 0,
+            scale = { x: 1, y: 1 }, 
+            origin = { x: undefined, y: undefined }
+        } = {}
+    } = {}) {
+        super(arguments[0])
         
-        drawable.parent = this
-        
-        drawable._rl_depth = depth
-        //insert into array at proper position
-        this._resolutionQueue.push(()=>{
-            this._rlindexInsert(drawable, this._drawableArr)
-        })
-        
-        //add the ability to delete this drawable
-        drawable.remove = (function() {
-            this.removeDrawable(drawable)
-        }).bind(this)
-        
-        //add depth setter and getter to drawable for ease of use
-        Object.defineProperty(drawable, 'depth', {
-            get: function() { 
-                return this._rl_depth
-            },
-            set: (function(newValue) {
-                this.setDrawableDepth(drawable, newValue)
-            }).bind(this),
-            enumerable: true,
-            configurable: true
-        })
+        this.viewing = this.viewing || viewing
 
+        this.source = { x, y, width, height, rot, scale, origin }
+
+        const c = document.createElement('canvas')
+        c.width = this.width
+        c.height = this.height
+        this._osCtx = c.getContext('2d')
+    }
+
+    set height(height) {
+        this._height = height
+        if (this._osCtx) this._osCtx.canvas.height = height
+    }
+    get height() { return this._height }
+
+    set width(width) {
+        this._width = width
+        if (this._osCtx) this._osCtx.canvas.width = width
+    }
+    get width() { return this._width }
+
+    onDraw(ctx) {
+        const octx = this._osCtx
+        const source = this.source
+
+        octx.clearRect(0, 0, this.width, this.height)
+
+        octx.save()
+        octx.globalAlpha = source.opacity
+        
+        const centerOffsetWidth  = (source.origin.x !== undefined)? source.origin.x : this.width/2
+        const centerOffsetHeight = (source.origin.y !== undefined)? source.origin.y : this.height/2
+
+        const widthScale = (source.width)?(this.width / source.width):1
+        const heightScale = (source.height)?(this.height / source.height):1
+        octx.scale(widthScale, heightScale)
+        //scaling
+        octx.translate(centerOffsetWidth, centerOffsetHeight)
+        //rotation
+        octx.rotate(source.rot)
+        octx.scale(source.scale.x, source.scale.y)
+        octx.translate(-centerOffsetWidth - source.x|0, -centerOffsetHeight - source.y|0)
+
+        this.viewing.draw(octx)
+
+        octx.restore()
+        
+        ctx.drawImage(octx.canvas,0,0)
+    }
+}
+
+class Group extends Drawable {
+    constructor(opts) {
+        super(opts)
+
+        if (!this._drawables) 
+            this._drawables = []
+    }
+
+    onDraw(ctx) {
+        this._drawables.forEach(d => d.draw(ctx))
+
+        this._drawables.sort((d1, d2) => (d1.depth < d2.depth)?1:-1)
+    }
+
+    add(drawable) {
+        if (!this._drawables) 
+            this._drawables = []
+
+        drawable.parent = this
+        drawable.remove = (_ =>this.remove(drawable)).bind(this)
+
+        this._drawables.push(drawable)
         return drawable
     }
     
-    removeDrawable(drawable) {
-        //clean and remove from hash
-        delete drawable.depth
+    remove(drawable) {
         delete drawable.remove
-        delete drawable._rl_depth
-        
-        
-        //schedule removal from array
-        this._resolutionQueue.push(()=>{
-            this._drawableArr.splice(drawable._rl_index, 1)
-            for(let i = drawable._rl_index; i < this._drawableArr.length; i++) 
-                this._drawableArr[i]._rl_index--
-            
-            delete drawable._rl_index
-            delete drawable.parent
-        })
-    }
-    
-    setDrawableDepth(drawable, depth=0) {
-        //schedule removal from array
-        this._resolutionQueue.push(()=>{
-            this._drawableArr.splice(drawable._rl_index, 1)
-            for(let i = drawable._rl_index; i < this._drawableArr.length; i++) 
-                this._drawableArr[i]._rl_index--
-        })
-        drawable._rl_depth = depth
-        
-        //schedule subsequest reinsert
-        this._resolutionQueue.push(()=>{
-            this._rlindexInsert(drawable, this._drawableArr)
-        })
-    }
-    
-    //the class that extends this must call this in draw
-    _resolve() { 
-        this._resolutionQueue.forEach(f => f())
-        this._resolutionQueue = []
-    }
-    
-    //inserts an object into an sorted array, sorted based upon an object's _rl_index property
-    _rlindexInsert(object, arr) {
-        var low = 0,
-            high = arr.length
-
-        while (low < high) {
-            var mid = (low + high) >>> 1
-            if (arr[mid]._rl_depth < object._rl_depth) low = mid + 1
-            else high = mid
-        }
-        
-        object._rl_index = low
-        arr.splice(low, 0, object)
-        //update index counter of sprites being pushed up by insertion
-        for (let i = low+1; i < arr.length; i++) {
-            arr[i]._rl_index++
-        }
-    }
-
-    onFrame() {
-        this._drawableArr.forEach(drawable=>{
-            if (drawable.onFrame) drawable.onFrame()
-        })
+        delete drawable.parent
+        this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
     }
 
     //(touchee: Drawable, shouldBe?: T extends Drawable) => false | Drawable[]
     isTouching(drawable, shouldBe) {
-        const touches = this._drawableArr.reduce((acc, otherDrawable) => {
+        const touches = this._drawables.reduce((acc, otherDrawable) => {
             const result = otherDrawable.isTouching(drawable, shouldBe)
             if (!result) {
                 return acc
@@ -403,40 +401,66 @@ const DrawableCollectionMixin = Base => class extends Base {
     }
 }
 
-//could be extended to support rotation, smoothing, background color
-class Layer extends DrawableCollectionMixin(Drawable) {
-    constructor({ width, height }) {
-        super(arguments[0])
-        
-        const c = document.createElement("canvas")
-        if (width)
-            c.width = width
-        if (height)
-            c.height = height
-        this._osCtx = c.getContext("2d")
+class LoadGroup extends Group {
+    constructor(opts) {
+        super(opts)
+
+        this._resolved = false
+        if (this._promises) {
+            Promise.all(this._promises).then(_ => { 
+                this._resolved = true
+                this._drawables = []
+                this._drawablesToAdd = []
+                this.onLoad()
+            })
+        } else {
+            this._resolved = true
+        }
     }
 
-    _draw(ctx) {
-        this._osCtx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-        
-        this._resolve()
-        
-        for (let i = 0; i < this._drawableArr.length; i++)
-            this._drawableArr[i].draw(this._osCtx)
-        
-        ctx.drawImage(this._osCtx.canvas,0,0)
+    onLoad() {}
+    onLoadingDraw() {}
+    onLoadedDraw() {}
+
+    onDraw(ctx) {
+        if (this._resolved) {
+            this.onLoadedDraw()
+        } else {
+            this.onLoadingDraw()
+        }
+        super.onDraw(ctx)
+    }
+
+    load(url) {
+        if (!this._promises)
+            this._promises = []
+
+        const promise = fetch(url).then(res => res.blob()).then(blob => { 
+            if (blob.type.startsWith('image')) {
+                this.img = new Image()
+                this.img.src = urlCreator.createObjectURL(blob)
+                return this.image
+            }
+            //text
+            //audio
+            //video
+        })
+        this._promises.push(promise)
+        return promise
     }
 }
 
-class Group extends DrawableCollectionMixin(Drawable) {
+class Scene extends LoadGroup {
     constructor(opts) {
         super(opts)
-    }
-    
-    draw(ctx) {
-        this._resolve()
-        
-        for (let i = 0; i < this._drawableArr.length; i++)
-            this._drawableArr[i].draw(ctx)
+
+        this.origin.x = this.origin.x || 0
+        this.origin.y = this.origin.y || 0
+
+        this.view = new View({
+            viewing: this,
+            height: this.height,
+            width: this.width
+        })
     }
 }

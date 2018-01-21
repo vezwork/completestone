@@ -1,3 +1,5 @@
+'use strict'
+
 export class Input {
     constructor(el=document.body, mobile) {
         if (!((el instanceof HTMLElement) || (el instanceof HTMLDocument)))

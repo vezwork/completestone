@@ -1,7 +1,7 @@
 'use strict'
 
-import { Rectangle, Drawable, TextLine } from './Ocru/src/drawable.js'
-import { Ocru, LoadEventScene, Scene } from './Ocru/src/lib.js'
+import { Rectangle, Drawable, TextLine, Scene } from './Ocru/src/drawable.js'
+import { Ocru } from './Ocru/src/lib.js'
 
 const c = document.getElementById('canvas')
 const ocru = new Ocru(document.getElementById('canvas'), 60)
@@ -23,7 +23,7 @@ class Guy extends Rectangle {
         this.ridingPlatform = null
     }
 
-    onDraw() {
+    onFrame() {
         const prev = {
             x: this.x,
             y: this.y
@@ -147,7 +147,7 @@ class Platform extends Rectangle {
         this.color = 'purple'
     }
 
-    onDraw() {
+    onFrame() {
         this.x += this.xspeed * timeScale
         this.y += this.yspeed * timeScale
     }
@@ -164,7 +164,7 @@ class Backpack extends Platform {
         this._failedLaunch = false
     }
 
-    onDraw() {
+    onFrame() {
         if (input.keyPressed('arrowDown')) {
             this.xspeed = this.carrier.xspeed
             this.yspeed = this.carrier.yspeed - 10
@@ -308,7 +308,7 @@ class CollisionGrid extends Drawable {
         this.gridSize = gridSize
     }
 
-    draw(ctx) {
+    onDraw(ctx) {
         ctx.fillStyle = 'red'
         for (let x = 0; x < this.grid[0].length; x++) {
             for (let y = 0; y < this.grid.length; y++) {
@@ -337,66 +337,53 @@ class CollisionGrid extends Drawable {
     }
 }
 
-class MainScene extends LoadEventScene(Scene) {
+class MainScene extends Scene {
     onCreate() {
         console.log('created', this)
         
-        this.grid = this.addDrawable(new CollisionGrid(gridArray, 64))
-        this.guy = this.addDrawable(new Guy({ create: { dog: 1 }, x: 100, y: 140 }))
-        this.text = this.addDrawable(new TextLine({ text: 'hello', height: 40 }))
+        this.grid = this.add(new CollisionGrid(gridArray, 64))
+        this.guy = this.add(new Guy({ create: { dog: 1 }, x: 100, y: 140 }))
+        this.text = this.add(new TextLine({ text: 'hello', height: 40 }))
         this.text.depth = 100
 
-        this.platform = this.addDrawable(new Platform({ x: -200, y: 228 }))
+        this.platform = this.add(new Platform({ x: -200, y: 228 }))
 
-        this.backpack = this.addDrawable(new Backpack({ create: { carrier: this.guy }}))
+        this.backpack = this.add(new Backpack({ depth: 10, create: { carrier: this.guy }}))
 
         this.viewPlayerX = 0
         this.viewPlayerY = 0
     }
     
-    onLoadDrawStart() {
+    onLoadingDraw() {
     }
     
-    onReady() {
+    onLoad() {
     }
     
-    onDrawStart() {
-        this.viewPlayerX
-        this.viewPlayerY 
+    onLoadedDraw() {
+        //this.view.source.x += (this.viewPlayerX - this.view.source.x) * 0.05 * timeScale
 
-        this.viewPlayerX = this.guy.x - 300
-        this.viewPlayerY = this.guy.y - 200 
+        const x1 = Math.min(this.guy.x - 300, this.backpack.x - 20)
+        const y1 = Math.min(this.guy.y - 200, this.backpack.y - 20)
 
-        const viewWidth = (this.default_view.width)/2
-        const viewHeight = (this.default_view.height)/2
+        const x2 = (Math.max(this.guy.x + 364, this.backpack.x + 20) - x1) / 728
+        const y2 = (Math.max(this.guy.y + 264, this.backpack.y + 20) - y1) / 528
+        const zoom = Math.max(x2, y2)
 
-        const viewCenterX = this.viewPlayerX + viewWidth
-        const viewCenterY = this.viewPlayerY + viewHeight
+        this.view.source.x = x1
+        this.view.source.y = y1
 
-        const backpackToCenterX = Math.abs(this.backpack.x - viewCenterX) 
-        const backpackToCenterY = Math.abs(this.backpack.y - viewCenterY)
-        if (backpackToCenterX > this.default_view.width/2 || backpackToCenterY > this.default_view.height/2) {
-            this.default_view.zoomX += (0.6 - this.default_view.zoomX) * 0.03
-            this.default_view.zoomY += (0.6 - this.default_view.zoomY) * 0.03
-            if (this.backpack.y - viewCenterY < this.default_view.width/2) 
-                this.default_view.sy += ((this.backpack.y - 25) - this.default_view.sy) * 0.3 * timeScale
-
-            
-        } else {
-            this.default_view.zoomX += (1 - this.default_view.zoomX) * 0.03
-            this.default_view.zoomY += (1 - this.default_view.zoomY) * 0.03
-            this.default_view.sy += (this.viewPlayerY - this.default_view.sy) * 0.05 * timeScale
-        }
-        this.default_view.sx += (this.viewPlayerX - this.default_view.sx)* 0.05 * timeScale
-    }
-    
-    onDrawEnd() {
+        this.view.source.width = 728 * zoom
+        this.view.source.height = 528 * zoom
     }
 }
 
-const scene = new MainScene()
+const scene = new MainScene({
+    height: c.height,
+    width: c.width
+})
 
-ocru.play(scene)
+ocru.play(scene.view)
 
 document.addEventListener('keydown', e => {
     if (e.key === 'z')
