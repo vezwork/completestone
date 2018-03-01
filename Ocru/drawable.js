@@ -17,23 +17,21 @@ class Drawable {
                 depth = 0,
                 create = {}
             } = {}) {
-
-        if (this.onCreate) this.onCreate(create)
-
-        this.x = (this.x || x)|0
-        this.y = (this.y || y)|0
-        this.width = (this.width || width)|0
-        this.height = (this.height || height)|0
+                
+        this.x = x|0
+        this.y = y|0
+        this.width = width|0
+        this.height = height|0
         
-        this.rot = +(this.rot || rot)
-        this.opacity = +(this.opacity || opacity)
+        this.rot = +rot
+        this.opacity = +opacity
         
-        this.blendmode = (this.blendmode || blendmode)+''
+        this.blendmode = blendmode+''
         
-        this.scale = this.scale || scale
-        this.origin = this.origin || origin
+        this.scale = scale
+        this.origin = origin
 
-        this.depth = this.depth || depth
+        this.depth = depth
     }
 
     onFrame() {}
@@ -56,9 +54,12 @@ class Drawable {
         ctx.scale(this.scale.x,this.scale.y)
         ctx.translate(-centerOffsetWidth + this.x|0, -centerOffsetHeight + this.y|0)
         //the subclass must handle using draw something within height, width, at 0,0
+
         //DEBUG BLUE BOX
-        //ctx.fillStyle='blue'
-        //ctx.fillRect(this.x,this.y,this.width,this.height)
+        ctx.globalAlpha = 0.2
+        ctx.fillStyle='blue'
+        ctx.fillRect(0,0,this.width,this.height)
+        ctx.globalAlpha = this.opacity
 
         this.onDraw(ctx)
 
@@ -169,12 +170,22 @@ class Drawable {
 
         return dimensions
     }
+
+    static get Events() {
+        return class extends this {
+            constructor(opts = {}) {
+                super(...arguments)
+
+                this.onCreate(opts.create)
+            }
+        }
+    }
 }
 
 class Rectangle extends Drawable {
     constructor({ color = 'black' } = {}) {
         super(arguments[0])
-        this.color = (this.color || color)+''
+        this.color = color+''
     }
     
     onDraw(ctx) {
@@ -184,15 +195,16 @@ class Rectangle extends Drawable {
 }
 
 class TextLine extends Drawable {
-    constructor({text='', color='#000', font='arial'} = {}) {
+    constructor({text='', color='#000', font='arial', autoWidth=true} = {}) {
         const opts = arguments[0] || {}
-        if (opts.width === undefined) opts.width = 100000
+        if (opts.width === undefined) opts.width = Infinity
         if (opts.height === undefined) opts.height = 14
         super(opts)
         
-        this.text = this.text || text+''
-        this.font = this.font || font+''
-        this.color = this.color || color+''
+        this.text = text+''
+        this.font = font+''
+        this.color = color+''
+        this.autoWidth = !!autoWidth
     }
     
     onDraw(ctx) {
@@ -200,6 +212,9 @@ class TextLine extends Drawable {
         ctx.fillStyle = this.color
         
         ctx.textBaseline = 'top'
+        if (this.autoWidth) {
+            this.width = ctx.measureText('this.text').width
+        }
         ctx.fillText(this.text, 0, 0, this.width)
     }
 } 
@@ -222,9 +237,9 @@ class SpriteSheet extends Drawable {
         if (opts.height === undefined) opts.height = frameHeight
         super(opts)
         
-        this.image = this.image ||image
-        this.crop = this.crop || crop
-        this.subimage = this.subimage || 0
+        this.image = image
+        this.crop = crop
+        this.subimage = 0
 
         this._imagesPerRow = (image.naturalWidth / frameWidth|0)
         this._imagesPerColumn = (image.naturalHeight / frameHeight|0)
@@ -270,8 +285,8 @@ class Sprite extends Drawable {
 
         super(opts)
         
-        this.image = this.image || image
-        this.crop = this.crop || crop
+        this.image = image
+        this.crop = crop
     }
     
     onDraw(ctx) {
@@ -291,7 +306,7 @@ class Sprite extends Drawable {
 //could be extended to support rotation, smoothing, background color
 class View extends Drawable {
     constructor({
-        viewing = null,
+        subject = null,
         source: {
             x = 0, 
             y = 0, 
@@ -304,7 +319,7 @@ class View extends Drawable {
     } = {}) {
         super(arguments[0])
         
-        this.viewing = this.viewing || viewing
+        this.subject = subject
 
         this.source = { x, y, width, height, rot, scale, origin }
 
@@ -325,6 +340,17 @@ class View extends Drawable {
         if (this._osCtx) this._osCtx.canvas.width = width
     }
     get width() { return this._width }
+
+    set subject(subject) {
+        if (subject) {
+            this._subject = subject
+            if (this._subject.parentViews)
+                this._subject.parentViews.push(this)
+            else 
+                this._subject.parentViews = [this]
+        }
+    }
+    get subject() { return this._subject }
 
     onDraw(ctx) {
         const octx = this._osCtx
@@ -348,7 +374,7 @@ class View extends Drawable {
         octx.scale(source.scale.x, source.scale.y)
         octx.translate(-centerOffsetWidth - source.x|0, -centerOffsetHeight - source.y|0)
 
-        this.viewing.draw(octx)
+        this.subject.draw(octx)
 
         octx.restore()
         
@@ -360,8 +386,7 @@ class Group extends Drawable {
     constructor(opts) {
         super(opts)
 
-        if (!this._drawables) 
-            this._drawables = []
+        this._drawables = []
     }
 
     onDraw(ctx) {
@@ -371,9 +396,6 @@ class Group extends Drawable {
     }
 
     add(drawable) {
-        if (!this._drawables) 
-            this._drawables = []
-
         drawable.parent = this
         drawable.remove = (_ =>this.remove(drawable)).bind(this)
 
@@ -406,16 +428,8 @@ class LoadGroup extends Group {
         super(opts)
 
         this._resolved = false
-        if (this._promises) {
-            Promise.all(this._promises).then(_ => { 
-                this._resolved = true
-                this._drawables = []
-                this._drawablesToAdd = []
-                this.onLoad()
-            })
-        } else {
-            this._resolved = true
-        }
+        this._promises = []
+        this._startedLoading = false
     }
 
     onLoad() {}
@@ -425,21 +439,34 @@ class LoadGroup extends Group {
     onDraw(ctx) {
         if (this._resolved) {
             this.onLoadedDraw()
+        } else if (this._promises.length === 0) {
+            this._resolved = true
+            this.onLoadedDraw()
         } else {
+            if (!this._startedLoading) {
+                this._startedLoading = true
+                Promise.all(this._promises).then(_ => { 
+                    this._resolved = true
+                    this._drawables = []
+                    this._drawablesToAdd = []
+                    this.onLoad()
+                })
+            }
             this.onLoadingDraw()
         }
         super.onDraw(ctx)
     }
 
     load(url) {
-        if (!this._promises)
-            this._promises = []
-
         const promise = fetch(url).then(res => res.blob()).then(blob => { 
             if (blob.type.startsWith('image')) {
-                this.img = new Image()
-                this.img.src = urlCreator.createObjectURL(blob)
-                return this.image
+                promise.img = new Image()
+                promise.img.src = URL.createObjectURL(blob)
+                return new Promise((resolve, reject) => {
+                    promise.img.addEventListener('load', _=> {
+                        resolve(promise.img)
+                    })
+                })
             }
             //text
             //audio
@@ -454,13 +481,19 @@ class Scene extends LoadGroup {
     constructor(opts) {
         super(opts)
 
-        this.origin.x = this.origin.x || 0
-        this.origin.y = this.origin.y || 0
+        this.origin.x = 0
+        this.origin.y = 0
 
         this.view = new View({
-            viewing: this,
+            subject: this,
             height: this.height,
             width: this.width
         })
+
+        this.staticGroup = new Group()
+
+        this.group = new Group()
+        this.group.add(this.staticGroup)
+        this.group.add(this.view)
     }
 }

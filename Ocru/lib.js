@@ -26,7 +26,7 @@
 
 'use strict'
 
-import { Input } from '../../input/input.js'
+import { Input } from './input.js'
 export { Turntable, Ocru }
 
 class Turntable {
