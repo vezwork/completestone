@@ -334,13 +334,16 @@ class CollisionGrid extends Drawable {
 
     isTouching(touchee, shouldBe) {
         if (shouldBe !== CollisionGrid) return false
+
+        const rd = touchee.getRealDimensions()
+
         const start = {
-            x: Math.floor((touchee.x) / this.gridSize),
-            y: Math.floor((touchee.y) / this.gridSize)
+            x: Math.floor((rd.center.x - rd.width/2) / this.gridSize),
+            y: Math.floor((rd.center.y - rd.height/2) / this.gridSize)
         }
         const end = {
-            x: Math.floor((touchee.x + touchee.height - 1) / this.gridSize),
-            y: Math.floor((touchee.y + touchee.width - 1) / this.gridSize)
+            x: Math.floor((rd.center.x + rd.width/2) / this.gridSize),
+            y: Math.floor((rd.center.y + rd.height/2) / this.gridSize)
         }
         for (let x = start.x; x <= end.x && x < this.grid[0].length; x++) {
             for (let y = start.y; y <= end.y && y < this.grid.length; y++) {
@@ -403,16 +406,16 @@ class MainScene extends Scene.Events {
     
     onLoad() {
         
-        this.sprite = this.add(new Sprite({ 
-            image: this.imageLoader.img, 
-            depth: 11, 
-            scale: { x: 0.6, y: 0.6}, 
-            x: -550, y: -170 
-        }))
+        //this.sprite = this.add(new Sprite({ 
+        //    image: this.imageLoader.img, 
+        //    depth: 11, 
+        //    scale: { x: 0.6, y: 0.6}, 
+        //    x: -550, y: -170 
+        //}))
         console.log(this.sprite)
         this.grid = this.add(new CollisionGrid(gridArray, 64))
         this.grid.depth = 12
-        this.guy = this.add(new Guy({ create: { dog: 1 }, x: 100, y: 140 }))
+        this.guy = this.add(new Guy({ create: { dog: 1 }, x: 100, y: 140}))
         this.text = this.add(new TextLine({ text: 'hello', height: 40 }))
         this.text.depth = 100
 
@@ -420,14 +423,14 @@ class MainScene extends Scene.Events {
 
         this.backpack = this.add(new Backpack({ depth: 10, create: { carrier: this.guy }}))
 
-        this.view.source.height = this.height
-        this.view.source.width = this.width
-
         this.staticGroup.add(new TextLine({ text: 'helloooo', height: 40, x: 20, y: 20 }))
+
+        this.debugSquare = this.add(new Rectangle({ color: 'crimson', height: 20, width: 20}))
 
         this.view.scale.x = 0.5
         this.view.scale.y = 0.5
         this.view.rot = 1
+        //this.scale.x = 2
     }
     
     onLoadedDraw() {
@@ -443,13 +446,14 @@ class MainScene extends Scene.Events {
         const y2 = (Math.max(this.guy.y + viewPortHeight/2, this.backpack.y + 84) - y1) / viewPortHeight
         const zoom = Math.max(x2, y2)
 
-        this.view.source.x += (x1 - this.view.source.x) * 0.1
-        this.view.source.y += (y1 - this.view.source.y) * 0.1
+        //this.view.source.x += (x1 - this.view.source.x) * 0.1
+        //this.view.source.y += (y1 - this.view.source.y) * 0.1
 
-        this.view.source.width += (((viewPortWidth * zoom) | 0) - this.view.source.width) * 0.1
-        this.view.source.height += (((viewPortHeight * zoom) | 0) - this.view.source.height) * 0.1
+        //this.view.source.width += (((viewPortWidth * zoom) | 0) - this.view.source.width) * 0.1
+        //this.view.source.height += (((viewPortHeight * zoom) | 0) - this.view.source.height) * 0.1
 
-        //this.view.rot+=0.001
+        this.view.rot+=0.001
+        //this.view.source.rot -= 0.002
     }
 }
 
@@ -477,7 +481,7 @@ scene.view.onFrame = () => {
     canvas.getContext('2d').fillStyle = 'red'
     canvas.getContext('2d').fillRect(x+xViewVec*100,y+ yViewVec*100,20,20)
 
-    //project mouse coordinates onto [ 1 0 ] vector in view space
+    //project mouse coordinates onto [ 1 0 ] vector in view space to get x
     const projectionNumerator = (input.mouse.x - x) * xViewVec + (input.mouse.y - y) * yViewVec
     const projectionDenominator = Math.sqrt(xViewVec ** 2 + yViewVec ** 2) ** 2
     const firstFactor = projectionNumerator / projectionDenominator
@@ -488,7 +492,28 @@ scene.view.onFrame = () => {
     canvas.getContext('2d').fillStyle = 'yellow'
     canvas.getContext('2d').fillRect(x+xRes,y+ yRes,20,20)
 
-    console.log(xRes / xViewVec)
+    const perspectiveXResult = xRes / xViewVec / view.scale.x
+
+    //project mouse coordinates onto [ 0 1 ] vector in view space to get y
+    const xViewVec2 = Math.sin(-view.rot)
+    const yViewVec2 = Math.cos(view.rot)
+
+    canvas.getContext('2d').fillStyle = 'red'
+    canvas.getContext('2d').fillRect(x+xViewVec2*100,y+ yViewVec2*100,20,20)
+
+    const projectionNumerator2 = (input.mouse.x - x) * xViewVec2 + (input.mouse.y - y) * yViewVec2
+    const projectionDenominator2 = Math.sqrt(xViewVec2 ** 2 + yViewVec2 ** 2) ** 2
+    const firstFactor2 = projectionNumerator2 / projectionDenominator2
+
+    const xRes2 = firstFactor2 * xViewVec2
+    const yRes2 = firstFactor2 * yViewVec2
+
+    canvas.getContext('2d').fillStyle = 'orange'
+    canvas.getContext('2d').fillRect(x+xRes2,y+ yRes2,20,20)
+
+    const perspectiveYResult = yRes / yViewVec / view.scale.y
+
+    
 }
 
 ocru.play(scene.group)

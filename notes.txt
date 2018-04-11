@@ -1,0 +1,17 @@
+### 2018-03-04
+
+Just realized that collision detection (namely getting the real bounding box of the object) works against expected behavior under the following condition: 
+A Drawable is rotated some ammount such that rotation % 90 != 0. That Drawable is in a Group which has different x and y scales.
+Under these conditions the visual rectangular bounding box of the Drawable is actually skewed into what I assume is a parallelogram.
+Currently the get real bounding box method of the Drawable assumes that Drawables remain as rectangles under all available transformations.
+Since this isn't true there are some options:
+
+1. Approximate these parallelograms as rotated rectangles, this leads to incorrect and strange results but requires very little modification.
+2. Change the get real bounding box method to not return a bounding box but instead points representing the parellelogram/rectangular shape.
+And modify the SAT collision algorithm to accomodate parallelograms, may as well make it work with any convex polygon. This lowers performance
+but garauntees accuracy to the visual item. This also makes the get real bounding box method a direct mirror of the "get mouse coordinates in world" type function
+which should be easy to make by reversing this. In this case all I need is something that gets the position of a point in the parent group.
+3. Do nothing. It makes sense to only accomodate rectangular bounding boxes but this will result in very incorrect results in many cases. 
+I don't like this option but it's what I should do in this case because I am trying to put development of the game ahead of Ocru.
+
+Going to take a break for now. Was working on getting where the mouse is in the world before I got sucked into looking at the existing collisions.

@@ -50,16 +50,18 @@ class Drawable {
         //scaling
         ctx.translate(centerOffsetWidth, centerOffsetHeight)
         //rotation
+        
+        ctx.translate(this.x|0, this.y|0)
         ctx.rotate(this.rot)
         ctx.scale(this.scale.x,this.scale.y)
-        ctx.translate(-centerOffsetWidth + this.x|0, -centerOffsetHeight + this.y|0)
+        ctx.translate(-centerOffsetWidth, -centerOffsetHeight)
         //the subclass must handle using draw something within height, width, at 0,0
 
         //DEBUG BLUE BOX
-        ctx.globalAlpha = 0.2
-        ctx.fillStyle='blue'
-        ctx.fillRect(0,0,this.width,this.height)
-        ctx.globalAlpha = this.opacity
+        //ctx.globalAlpha = 0.2
+        //ctx.fillStyle='blue'
+        //ctx.fillRect(0,0,this.width,this.height)
+        //ctx.globalAlpha = this.opacity
 
         this.onDraw(ctx)
 
@@ -127,22 +129,23 @@ class Drawable {
     }
 
     getRealDimensions() {
-        let centerOffsetWidth  = this.x + ((this.origin.x !== undefined)? this.origin.x : this.width/2)|0
-        let centerOffsetHeight = this.y + ((this.origin.y !== undefined)? this.origin.y : this.height/2)|0
+        let centerOffsetWidth  = ((this.origin.x !== undefined)? this.origin.x : this.width/2)|0
+        let centerOffsetHeight = ((this.origin.y !== undefined)? this.origin.y : this.height/2)|0
 
         let cosa = Math.cos(this.rot)
         let sina = Math.sin(this.rot)
-        const centerX = (this.x + this.width/2 - centerOffsetWidth) * this.scale.x
-        const centerY = (this.y + this.height/2 - centerOffsetHeight) * this.scale.y
+        
+        const centerX = (this.width/2 - centerOffsetWidth) * this.scale.x
+        const centerY = (this.height/2 - centerOffsetHeight) * this.scale.y
 
         const dimensions = {
             rot: this.rot,
             center: { 
-                x: (centerX * cosa) - (centerY * sina) + centerOffsetWidth, 
-                y: (centerX * sina) + (centerY * cosa) + centerOffsetHeight
+                x: ((centerX * cosa) - (centerY * sina) + centerOffsetWidth) + this.x,
+                y: ((centerX * sina) + (centerY * cosa) + centerOffsetHeight) + this.y
             },
+            width: this.width * this.scale.x,
             height: this.height * this.scale.y,
-            width: this.width * this.scale.x
         }        
 
         let cur = this.parent
@@ -151,19 +154,20 @@ class Drawable {
             centerOffsetWidth  = cur.x + ((cur.origin.x !== undefined)? cur.origin.x : cur.width/2)|0
             centerOffsetHeight = cur.y + ((cur.origin.y !== undefined)? cur.origin.y : cur.height/2)|0
 
-            const relX = dimensions.center.x - centerOffsetWidth
-            const relY = dimensions.center.y - centerOffsetHeight
-
             cosa = Math.cos(cur.rot)
             sina = Math.sin(cur.rot)
-            
+
+            const relX = (dimensions.center.x - centerOffsetWidth) * cur.scale.x
+            const relY = (dimensions.center.y - centerOffsetHeight) * cur.scale.y
+
             dimensions.rot = dimensions.rot + cur.rot,
             dimensions.center = { 
-                    x: ((relX * cosa) - (relY * sina) + centerOffsetWidth) * cur.scale.x + cur.x, 
-                    y: ((relX * sina) + (relY * cosa) + centerOffsetHeight) * cur.scale.y + cur.y
-                },
-            dimensions.height = dimensions.height * cur.scale.x,
-            dimensions.width =  dimensions.width * cur.scale.y
+                x: ((relX * cosa) - (relY * sina) + centerOffsetWidth) + cur.x, 
+                y: ((relX * sina) + (relY * cosa) + centerOffsetHeight) + cur.y
+            }
+
+            dimensions.width = dimensions.width * cur.scale.x
+            dimensions.height = dimensions.height * cur.scale.y
  
             cur = cur.parent
         }
@@ -306,22 +310,11 @@ class Sprite extends Drawable {
 //could be extended to support rotation, smoothing, background color
 class View extends Drawable {
     constructor({
-        subject = null,
-        source: {
-            x = 0, 
-            y = 0, 
-            width, //when undefined use this.width
-            height, //when undefined use this.height
-            rot = 0,
-            scale = { x: 1, y: 1 }, 
-            origin = { x: undefined, y: undefined }
-        } = {}
+        subject = null
     } = {}) {
         super(arguments[0])
         
         this.subject = subject
-
-        this.source = { x, y, width, height, rot, scale, origin }
 
         const c = document.createElement('canvas')
         c.width = this.width
@@ -353,32 +346,11 @@ class View extends Drawable {
     get subject() { return this._subject }
 
     onDraw(ctx) {
-        const octx = this._osCtx
-        const source = this.source
+        this._osCtx.clearRect(0, 0, this.width, this.height)
 
-        octx.clearRect(0, 0, this.width, this.height)
-
-        octx.save()
-        octx.globalAlpha = source.opacity
+        this.subject.draw(this._osCtx)
         
-        const centerOffsetWidth  = (source.origin.x !== undefined)? source.origin.x : this.width/2
-        const centerOffsetHeight = (source.origin.y !== undefined)? source.origin.y : this.height/2
-
-        const widthScale = (source.width)?(this.width / source.width):1
-        const heightScale = (source.height)?(this.height / source.height):1
-        octx.scale(widthScale, heightScale)
-        //scaling
-        octx.translate(centerOffsetWidth, centerOffsetHeight)
-        //rotation
-        octx.rotate(source.rot)
-        octx.scale(source.scale.x, source.scale.y)
-        octx.translate(-centerOffsetWidth - source.x|0, -centerOffsetHeight - source.y|0)
-
-        this.subject.draw(octx)
-
-        octx.restore()
-        
-        ctx.drawImage(octx.canvas,0,0)
+        ctx.drawImage(this._osCtx.canvas,0,0)
     }
 }
 
