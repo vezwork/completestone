@@ -2,6 +2,23 @@
 
 export { Drawable, Rectangle, TextLine, SpriteSheet, Sprite, View, Group, LoadGroup, Scene }
 
+function * intercalate(...iterables) {
+	let iterators = iterables.map(iterable => iterable[Symbol.iterator]());
+
+	while (iterators.length > 0) {
+		const newIterators = [];
+		for (const iterator of iterators) {
+			const { value, done } = iterator.next();
+			
+			if (!done) {
+				newIterators.push(iterator);
+				yield value;
+            }
+        }
+		iterators = newIterators;
+    }
+}
+
 //Drawable interface
 class Drawable {
     constructor({
@@ -13,6 +30,7 @@ class Drawable {
                 opacity = 1, 
                 blendmode = 'source-over', 
                 scale = { x: 1, y: 1 }, 
+                shear = { x: 0, y: 0 },
                 origin = { x: undefined, y: undefined },
                 depth = 0,
                 create = {}
@@ -29,6 +47,7 @@ class Drawable {
         this.blendmode = blendmode+''
         
         this.scale = scale
+        this.shear = shear
         this.origin = origin
 
         this.depth = depth
@@ -40,20 +59,19 @@ class Drawable {
         this.onFrame()
 
         ctx.save()
-        //handle opacity
+
         ctx.globalAlpha = this.opacity
         ctx.globalCompositeOperation = this.blendmode
         
         const centerOffsetWidth  = (this.origin.x !== undefined)? this.origin.x : this.width/2
         const centerOffsetHeight = (this.origin.y !== undefined)? this.origin.y : this.height/2
         
-        //scaling
         ctx.translate(centerOffsetWidth, centerOffsetHeight)
-        //rotation
         
         ctx.translate(this.x|0, this.y|0)
         ctx.rotate(this.rot)
         ctx.scale(this.scale.x,this.scale.y)
+        ctx.transform(1,this.shear.x,this.shear.y,1,0,0)
         ctx.translate(-centerOffsetWidth, -centerOffsetHeight)
         //the subclass must handle using draw something within height, width, at 0,0
 
@@ -68,42 +86,93 @@ class Drawable {
         ctx.restore()
     }
 
-    static touching(drawable1, drawable2) {
-        const myDimensions = drawable1.getRealDimensions()
-        const coDimensions = drawable2.getRealDimensions()
+    * ancestorChains() {
+        yield [this]
 
-        const averageCenter = { x: coDimensions.center.x - myDimensions.center.x, 
-                                y: coDimensions.center.y - myDimensions.center.y }
-
-        const myRotNormal = { x: Math.cos(myDimensions.rot), y: Math.sin(myDimensions.rot) },
-              myHWidth = myDimensions.width/2,
-              myHHeight = myDimensions.height/2
-
-        const coRotNormal = { x: Math.cos(coDimensions.rot), y: Math.sin(coDimensions.rot) },
-              coHWidth = coDimensions.width/2 - 1, //kind of hack, not sure why I have to subtract 1
-              coHHeight = coDimensions.height/2 - 1
-
-        const seperation1 = Math.abs(averageCenter.x * myRotNormal.x + averageCenter.y * myRotNormal.y) > myHWidth +
-                 Math.abs(coHWidth * (coRotNormal.x * myRotNormal.x + coRotNormal.y * myRotNormal.y)) +
-                 Math.abs(coHHeight * (-coRotNormal.y * myRotNormal.x + coRotNormal.x * myRotNormal.y))
+        if (this.parent) {
+            for (const ancestor of this.parent.ancestorChains()) {
+                yield [this, ...ancestor]
+            }
+        }
         
-        const seperation2 = Math.abs(averageCenter.x * -myRotNormal.y + averageCenter.y * myRotNormal.x) > myHHeight +
-                 Math.abs(coHWidth * (coRotNormal.x * -myRotNormal.y + coRotNormal.y * myRotNormal.x)) +
-                 Math.abs(coHHeight * (-coRotNormal.y * -myRotNormal.y + coRotNormal.x * myRotNormal.x))    
+        if (this.parentViews) {
+            for (const parentView of this.parentViews) {
+                for (const ancestor of parentView.ancestorChains()) {
+                    yield [this, ...ancestor]
+                }
+            }
+        }
+    }
 
-        if (myDimensions.rot % 90 !== coDimensions.rot % 90) { //experimental optimization
-            const seperation3 = Math.abs(averageCenter.x * coRotNormal.x + averageCenter.y * coRotNormal.y) > coHWidth +
-                    Math.abs(myHWidth * (myRotNormal.x * coRotNormal.x + myRotNormal.y * coRotNormal.y)) +
-                    Math.abs(myHHeight * (-myRotNormal.y * coRotNormal.x + myRotNormal.x * coRotNormal.y))  
+    static touching(drawable1, drawable2) {
 
-            const seperation4 = Math.abs(averageCenter.x * -coRotNormal.y + averageCenter.y * coRotNormal.x) > coHHeight +
-                    Math.abs(myHWidth * (myRotNormal.x * -coRotNormal.y + myRotNormal.y * coRotNormal.x)) +
-                    Math.abs(myHHeight * (-myRotNormal.y * -coRotNormal.y + myRotNormal.x * coRotNormal.x))  
+        let drawable1Bounds;
+        let drawable2Bounds;
 
-            return !(seperation1 || seperation2 || seperation3 || seperation4)
+        //finding nearest common ancestor of drawable1 and drawable2
+        const drawable1AncestorChains = drawable1.ancestorChains()
+        const drawable2AncestorChains = drawable2.ancestorChains()
+
+        const drawable1ShortestPaths = new Map()
+        const drawable2ShortestPaths = new Map()
+
+        while (true) {
+            const { value: value1, done: done1 } = drawable1AncestorChains.next()
+            //[drawable1Ancestor, ...drawable1Rest]
+            const { value: value2, done: done2 } = drawable2AncestorChains.next()
+
+            if (done1 && done2) break
+            
+            if (!done1) {
+                drawable1ShortestPaths.set(value1[value1.length-1], value1) //TODO do not overwrite if not shorter path
+            }
+            if (!done2) {
+                drawable2ShortestPaths.set(value2[value2.length-1], value2)
+            }
+            
+            if (!done1) {
+                const res = drawable2ShortestPaths.get(value1[value1.length-1])
+                if (res) {
+                    drawable2Bounds = Drawable.transformPoints(res)
+                    drawable1Bounds = Drawable.transformPoints(value1)
+                    break
+                }
+                
+            }
+            if (!done2) {
+                const res = drawable1ShortestPaths.get(value2[value2.length-1])
+                if (res) {
+                    drawable1Bounds = Drawable.transformPoints(res)
+                    drawable2Bounds = Drawable.transformPoints(value2)
+                    break
+                }
+                
+            }
         }
 
-        return !(seperation1 || seperation2)
+        return !(
+            drawable1Bounds.some(isSideSeperating) || 
+            drawable2Bounds.some(isSideSeperating)
+        )
+        
+        function isSideSeperating(p1, i, arr) {
+            const p2 = arr[(i + 1) % arr.length];
+            const axis = { y: p1.x - p2.x, x: -(p1.y - p2.y) }; //axis orthogonal to line p1 p2
+            
+            const aprojs = drawable1Bounds.map(p => sproj(p, axis));
+            const amin = Math.min(...aprojs);
+            const amax = Math.max(...aprojs);
+            
+            const bprojs = drawable2Bounds.map(p => sproj(p, axis));
+            const bmin = Math.min(...bprojs);
+            const bmax = Math.max(...bprojs);
+            
+            return amax < bmin || bmax < amin;
+        }
+
+        function sproj(a, b) {
+            return (a.x*b.x + a.y*b.y) / Math.sqrt(b.x*b.x + b.y*b.y);
+        }
     }
 
     //(touchee: Drawable, shouldBe?: T extends Drawable) => false | Drawable[]
@@ -128,51 +197,72 @@ class Drawable {
         throw new TypeError('ParameterError: touchee is not a valid collision object')
     }
 
-    getRealDimensions() {
-        let centerOffsetWidth  = ((this.origin.x !== undefined)? this.origin.x : this.width/2)|0
-        let centerOffsetHeight = ((this.origin.y !== undefined)? this.origin.y : this.height/2)|0
+    static transformPoints(drawableArray) {
+        const firstDrawable = drawableArray[0]
+        let bounds = [{x: 0, y: 0}, {x: firstDrawable.width-1, y: 0}, {x:firstDrawable.width-1, y: firstDrawable.height-1}, {x: 0, y: firstDrawable.height-1}]
 
-        let cosa = Math.cos(this.rot)
-        let sina = Math.sin(this.rot)
-        
-        const centerX = (this.width/2 - centerOffsetWidth) * this.scale.x
-        const centerY = (this.height/2 - centerOffsetHeight) * this.scale.y
+        drawableArray.forEach(drawable => 
+            bounds = bounds.map(point => drawable.getRelativePoint(point))
+        );
 
-        const dimensions = {
-            rot: this.rot,
-            center: { 
-                x: ((centerX * cosa) - (centerY * sina) + centerOffsetWidth) + this.x,
-                y: ((centerX * sina) + (centerY * cosa) + centerOffsetHeight) + this.y
-            },
-            width: this.width * this.scale.x,
-            height: this.height * this.scale.y,
-        }        
+        return bounds
+    }
 
-        let cur = this.parent
+    getBoundsRelativeFrom(
+        referenceDrawable, 
+        bounds = [{x: 0, y: 0}, {x: this.width, y: 0}, {x: 0, y: this.height}, {x:this.width, y: this.height}]
+    ) {
+        //recursive depth first search, searching parents before parentViews
 
-        while (cur instanceof Drawable) {
-            centerOffsetWidth  = cur.x + ((cur.origin.x !== undefined)? cur.origin.x : cur.width/2)|0
-            centerOffsetHeight = cur.y + ((cur.origin.y !== undefined)? cur.origin.y : cur.height/2)|0
+        if (referenceDrawable === undefined)
+            return bounds
 
-            cosa = Math.cos(cur.rot)
-            sina = Math.sin(cur.rot)
+        const boundsRelativeToThis = bounds.map(this.getTransformedPoint)
 
-            const relX = (dimensions.center.x - centerOffsetWidth) * cur.scale.x
-            const relY = (dimensions.center.y - centerOffsetHeight) * cur.scale.y
+        if (this === referenceDrawable) 
+            return boundsRelativeToThis
 
-            dimensions.rot = dimensions.rot + cur.rot,
-            dimensions.center = { 
-                x: ((relX * cosa) - (relY * sina) + centerOffsetWidth) + cur.x, 
-                y: ((relX * sina) + (relY * cosa) + centerOffsetHeight) + cur.y
-            }
-
-            dimensions.width = dimensions.width * cur.scale.x
-            dimensions.height = dimensions.height * cur.scale.y
- 
-            cur = cur.parent
+        if (this.parent) {
+            const searchResult = this.parent.getBoundsRelativeTo(referenceDrawable, boundsRelativeToThis)
+            if (searchResult !== undefined)
+                return searchResult
         }
+        
+        if (this.parentViews) {
+            for (const parentView of parentViews) {
+                const searchResult = parentView.getBoundsRelativeTo(referenceDrawable, boundsRelativeToThis)
+                if (searchResult !== undefined)
+                    return searchResult
+            }
+        }
+    }
 
-        return dimensions
+    getRelativePoint({ x, y } = {}) {
+        const sin = Math.sin(this.rot)
+        const cos = Math.cos(this.rot)
+        
+        const _0 = this.scale.x * cos
+        const _1 = this.scale.y * sin
+        
+        const _a = _0 - this.shear.x * _1
+        const _b = this.shear.y * _0 - _1
+        
+        const _2 = this.scale.x * sin
+        const _3 = this.scale.y * cos
+        
+        const _c = _2 + this.shear.x * _3
+        const _d = this.shear.y * _2 + _3
+        
+        const centerOffsetWidth  = (this.origin.x !== undefined)? this.origin.x : this.width/2
+        const centerOffsetHeight = (this.origin.y !== undefined)? this.origin.y : this.height/2
+
+        const _4 = x - centerOffsetWidth
+        const _5 = y - centerOffsetHeight
+        
+        return {
+            x: _a*_4 + _b*_5 + this.x + centerOffsetWidth,
+            y: _c*_4 + _d*_5 + this.y + centerOffsetHeight
+        }
     }
 
     static get Events() {

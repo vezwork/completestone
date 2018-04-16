@@ -36,7 +36,7 @@ export class Input {
 
         //mouse and keybaord
         //disable the context menu
-        el.addEventListener('contextmenu', e=>e.preventDefault())
+        //el.addEventListener('contextmenu', e=>e.preventDefault())
         //add callbacks
         const mouseWheelHandler = e => {
             this.scroll += Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)))

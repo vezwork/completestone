@@ -335,15 +335,13 @@ class CollisionGrid extends Drawable {
     isTouching(touchee, shouldBe) {
         if (shouldBe !== CollisionGrid) return false
 
-        const rd = touchee.getRealDimensions()
-
         const start = {
-            x: Math.floor((rd.center.x - rd.width/2) / this.gridSize),
-            y: Math.floor((rd.center.y - rd.height/2) / this.gridSize)
+            x: Math.floor(touchee.x / this.gridSize),
+            y: Math.floor(touchee.y / this.gridSize)
         }
         const end = {
-            x: Math.floor((rd.center.x + rd.width/2) / this.gridSize),
-            y: Math.floor((rd.center.y + rd.height/2) / this.gridSize)
+            x: Math.floor((touchee.x + touchee.width) / this.gridSize),
+            y: Math.floor((touchee.y + touchee.height) / this.gridSize)
         }
         for (let x = start.x; x <= end.x && x < this.grid[0].length; x++) {
             for (let y = start.y; y <= end.y && y < this.grid.length; y++) {
@@ -387,10 +385,10 @@ const placeableElements = [
             view.scale.x
             view.scale.y
 
-            const {center, rot} = view.getRealDimensions()
+            // const {center, rot} = view.getRealDimensions()
 
-            const x = center.x - sin(rot) * view.width/2 
-            const y = center.y - cos(rot) * view.height/2
+            // const x = center.x - sin(rot) * view.width/2 
+            // const y = center.y - cos(rot) * view.height/2
         }
     }
 ]
@@ -427,9 +425,9 @@ class MainScene extends Scene.Events {
 
         this.debugSquare = this.add(new Rectangle({ color: 'crimson', height: 20, width: 20}))
 
-        this.view.scale.x = 0.5
-        this.view.scale.y = 0.5
-        this.view.rot = 1
+        //this.view.scale.x = 0.5
+        //this.view.scale.y = 0.5
+        //this.view.rot = 1
         //this.scale.x = 2
     }
     
@@ -452,7 +450,7 @@ class MainScene extends Scene.Events {
         //this.view.source.width += (((viewPortWidth * zoom) | 0) - this.view.source.width) * 0.1
         //this.view.source.height += (((viewPortHeight * zoom) | 0) - this.view.source.height) * 0.1
 
-        this.view.rot+=0.001
+        //this.view.rot+=0.001
         //this.view.source.rot -= 0.002
     }
 }
@@ -462,59 +460,6 @@ const scene = new MainScene({
     width: c.width
 })
 
-scene.view.onFrame = () => {
-    const view = scene.view
-    const {center, rot} = view.getRealDimensions()
-
-    const px = -view.width/2 * view.scale.x
-    const py = -view.height/2 * view.scale.y
-
-    const x = px * Math.cos(rot) - py * Math.sin(rot) + center.x
-    const y = px * Math.sin(rot) + py * Math.cos(rot) + center.y
-
-    canvas.getContext('2d').fillRect(x-30,y-30,60,60)
-
-    //get [ 1 0 ] in view space
-    const xViewVec = Math.cos(view.rot)
-    const yViewVec = Math.sin(view.rot)
-
-    canvas.getContext('2d').fillStyle = 'red'
-    canvas.getContext('2d').fillRect(x+xViewVec*100,y+ yViewVec*100,20,20)
-
-    //project mouse coordinates onto [ 1 0 ] vector in view space to get x
-    const projectionNumerator = (input.mouse.x - x) * xViewVec + (input.mouse.y - y) * yViewVec
-    const projectionDenominator = Math.sqrt(xViewVec ** 2 + yViewVec ** 2) ** 2
-    const firstFactor = projectionNumerator / projectionDenominator
-
-    const xRes = firstFactor * xViewVec
-    const yRes = firstFactor * yViewVec
-
-    canvas.getContext('2d').fillStyle = 'yellow'
-    canvas.getContext('2d').fillRect(x+xRes,y+ yRes,20,20)
-
-    const perspectiveXResult = xRes / xViewVec / view.scale.x
-
-    //project mouse coordinates onto [ 0 1 ] vector in view space to get y
-    const xViewVec2 = Math.sin(-view.rot)
-    const yViewVec2 = Math.cos(view.rot)
-
-    canvas.getContext('2d').fillStyle = 'red'
-    canvas.getContext('2d').fillRect(x+xViewVec2*100,y+ yViewVec2*100,20,20)
-
-    const projectionNumerator2 = (input.mouse.x - x) * xViewVec2 + (input.mouse.y - y) * yViewVec2
-    const projectionDenominator2 = Math.sqrt(xViewVec2 ** 2 + yViewVec2 ** 2) ** 2
-    const firstFactor2 = projectionNumerator2 / projectionDenominator2
-
-    const xRes2 = firstFactor2 * xViewVec2
-    const yRes2 = firstFactor2 * yViewVec2
-
-    canvas.getContext('2d').fillStyle = 'orange'
-    canvas.getContext('2d').fillRect(x+xRes2,y+ yRes2,20,20)
-
-    const perspectiveYResult = yRes / yViewVec / view.scale.y
-
-    
-}
 
 ocru.play(scene.group)
 
