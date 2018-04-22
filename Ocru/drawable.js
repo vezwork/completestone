@@ -133,7 +133,7 @@ class Drawable {
             if (!done1) {
                 const res = drawable2ShortestPaths.get(value1[value1.length-1])
                 if (res) {
-                    drawable2Bounds = Drawable.transformPoints(res)
+                    drawable2Bounds = Drawable.transformPoints(res) //should .slice(0,-1) to not include the nearest common ancestor, breaking for some reason
                     drawable1Bounds = Drawable.transformPoints(value1)
                     break
                 }
@@ -146,7 +146,6 @@ class Drawable {
                     drawable2Bounds = Drawable.transformPoints(value2)
                     break
                 }
-                
             }
         }
 
@@ -234,6 +233,26 @@ class Drawable {
                 if (searchResult !== undefined)
                     return searchResult
             }
+        }
+    }
+
+    getInverseRelativePoint({ x, y } = {}) {
+        const sin = Math.sin(-this.rot)
+        const cos = Math.cos(this.rot)
+        const _0 = this.scale.x * this.shear.x * sin - this.scale.y * cos
+        const _1 = this.scale.y * sin + this.scale.x * this.shear.x * cos
+        
+        const _2 = this.scale.x * this.scale.y * (this.shear.x * this.shear.y - 1)
+        
+        const _3 = this.shear.y * this.scale.y * cos - this.scale.x * sin
+        const _4 = -this.scale.x * cos - this.shear.y * this.scale.y * sin
+        
+        const centerOffsetWidth  = (this.origin.x !== undefined)? this.origin.x : this.width/2
+        const centerOffsetHeight = (this.origin.y !== undefined)? this.origin.y : this.height/2
+
+        return {
+            x: (_0 * (x - centerOffsetWidth - this.x) + _1 * (y - centerOffsetHeight - this.y) + centerOffsetWidth * _2) / _2,
+            y: (_3 * (x - centerOffsetWidth - this.x) + _4 * (y - centerOffsetHeight - this.y) + centerOffsetHeight * _2) / _2
         }
     }
 
@@ -410,6 +429,12 @@ class View extends Drawable {
         c.width = this.width
         c.height = this.height
         this._osCtx = c.getContext('2d')
+
+        //TODO: remove and add param for smoothing somewhere
+        this._osCtx.mozImageSmoothingEnabled = false;
+        this._osCtx.webkitImageSmoothingEnabled = false;
+        this._osCtx.msImageSmoothingEnabled = false;
+        this._osCtx.imageSmoothingEnabled = false;
     }
 
     set height(height) {
@@ -448,18 +473,32 @@ class Group extends Drawable {
     constructor(opts) {
         super(opts)
 
+        //TODO: remove and fix sort
+        this._depthCounter = 0
+
         this._drawables = []
     }
 
     onDraw(ctx) {
         this._drawables.forEach(d => d.draw(ctx))
 
-        this._drawables.sort((d1, d2) => (d1.depth < d2.depth)?1:-1)
+        this._drawables.sort((d1, d2) => {
+            if (d1.depth < d2.depth) {
+                return 1;
+            } else if (d1.depth > d2.depth) {
+                return -1;
+            } else {
+                return 0;
+            }
+        })
     }
 
     add(drawable) {
         drawable.parent = this
         drawable.remove = (_ =>this.remove(drawable)).bind(this)
+
+        //TODO: remove and fix sort
+        drawable.depth = this._depthCounter--
 
         this._drawables.push(drawable)
         return drawable

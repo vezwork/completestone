@@ -353,46 +353,6 @@ class CollisionGrid extends Drawable {
     }
 }
 
-class ClickableText extends TextLine {
-    onFrame() {
-        if (
-            input.mouse.x > this.x && 
-            input.mouse.x < this.x + this.width &&
-            input.mouse.y > this.y &&
-            input.mouse.y < this.y + this.height &&
-            input.buttonPressed('down')
-        ) {
-            this.onClick()
-        }
-    }
-
-    onClick() {}
-}
-
-const placeableElements = [
-    {
-        name: 'block',
-        placer: () => {
-            const view = scene.view
-
-            view.x
-            view.y
-            view.width
-            view.height
-            view.origin.x
-            view.origin.y
-            view.rot
-            view.scale.x
-            view.scale.y
-
-            // const {center, rot} = view.getRealDimensions()
-
-            // const x = center.x - sin(rot) * view.width/2 
-            // const y = center.y - cos(rot) * view.height/2
-        }
-    }
-]
-
 class MainScene extends Scene.Events {
     onCreate() {
         this.imageLoader = this.load('../level.PNG');
@@ -425,13 +385,18 @@ class MainScene extends Scene.Events {
 
         this.debugSquare = this.add(new Rectangle({ color: 'crimson', height: 20, width: 20}))
 
-        //this.view.scale.x = 0.5
-        //this.view.scale.y = 0.5
-        //this.view.rot = 1
-        //this.scale.x = 2
+        this.view.scale.x = 0.5
+        this.view.scale.y = 0.5
+        this.view.rot = 1
+        this.scale.x = 2
     }
     
     onLoadedDraw() {
+        const { x, y } = this.getInverseRelativePoint(this.view.getInverseRelativePoint(input.mouse))
+
+        this.debugSquare.x = x
+        this.debugSquare.y = y
+
         //this.view.source.x += (this.viewPlayerX - this.view.source.x) * 0.05 * timeScale
 
         const viewPortWidth = 728 * 2
@@ -450,8 +415,7 @@ class MainScene extends Scene.Events {
         //this.view.source.width += (((viewPortWidth * zoom) | 0) - this.view.source.width) * 0.1
         //this.view.source.height += (((viewPortHeight * zoom) | 0) - this.view.source.height) * 0.1
 
-        //this.view.rot+=0.001
-        //this.view.source.rot -= 0.002
+        this.view.rot+=0.001
     }
 }
 
