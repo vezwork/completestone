@@ -326,7 +326,7 @@ class TextLine extends Drawable {
         
         ctx.textBaseline = 'top'
         if (this.autoWidth) {
-            this.width = ctx.measureText('this.text').width
+            this.width = ctx.measureText(this.text).width
         }
         ctx.fillText(this.text, 0, 0, this.width)
     }
@@ -498,7 +498,7 @@ class Group extends Drawable {
         drawable.remove = (_ =>this.remove(drawable)).bind(this)
 
         //TODO: remove and fix sort
-        drawable.depth = this._depthCounter--
+        drawable.depth = this._depthCounter-=10
 
         this._drawables.push(drawable)
         return drawable
@@ -560,6 +560,7 @@ class LoadGroup extends Group {
 
     load(url) {
         const promise = fetch(url).then(res => res.blob()).then(blob => { 
+            console.log(blob.type);
             if (blob.type.startsWith('image')) {
                 promise.img = new Image()
                 promise.img.src = URL.createObjectURL(blob)
