@@ -28,11 +28,19 @@ class Drawable {
                 height = 0, 
                 rot = 0, 
                 opacity = 1, 
-                blendmode = 'source-over', 
+                blendmode = 'source-over',
+                smooth = false,
                 scale = { x: 1, y: 1 }, 
                 shear = { x: 0, y: 0 },
                 origin = { x: undefined, y: undefined },
                 depth = 0,
+                shadow = {
+                    x: 0,
+                    y: 0,
+                    color: undefined,
+                    blur: 0
+                },
+                filter = 'none',
                 create = {}
             } = {}) {
                 
@@ -40,17 +48,21 @@ class Drawable {
         this.y = y|0
         this.width = width|0
         this.height = height|0
-        
+
         this.rot = +rot
+
         this.opacity = +opacity
-        
         this.blendmode = blendmode+''
-        
+        this.smooth = !!smooth
+        this.filter = filter+''
+
+        this.shadow = shadow
+
         this.scale = scale
         this.shear = shear
         this.origin = origin
 
-        this.depth = depth
+        this.depth = +depth
     }
 
     onFrame() {}
@@ -62,6 +74,8 @@ class Drawable {
 
         ctx.globalAlpha = this.opacity
         ctx.globalCompositeOperation = this.blendmode
+        ctx.imageSmoothingEnabled = this.smooth;
+        ctx.filter = this.filter;
         
         const centerOffsetWidth  = (this.origin.x !== undefined)? this.origin.x : this.width/2
         const centerOffsetHeight = (this.origin.y !== undefined)? this.origin.y : this.height/2
@@ -73,6 +87,13 @@ class Drawable {
         ctx.scale(this.scale.x,this.scale.y)
         ctx.transform(1,this.shear.x,this.shear.y,1,0,0)
         ctx.translate(-centerOffsetWidth, -centerOffsetHeight)
+
+        if (this.shadow.color !== undefined) {
+            ctx.shadowColor = this.shadow.color
+            ctx.shadowBlur = this.shadow.blur
+            ctx.shadowOffsetX = this.shadow.x
+            ctx.shadowOffsetY = this.shadow.y
+        }
         //the subclass must handle using draw something within height, width, at 0,0
 
         //DEBUG BLUE BOX
@@ -429,12 +450,6 @@ class View extends Drawable {
         c.width = this.width
         c.height = this.height
         this._osCtx = c.getContext('2d')
-
-        //TODO: remove and add param for smoothing somewhere
-        this._osCtx.mozImageSmoothingEnabled = false;
-        this._osCtx.webkitImageSmoothingEnabled = false;
-        this._osCtx.msImageSmoothingEnabled = false;
-        this._osCtx.imageSmoothingEnabled = false;
     }
 
     set height(height) {
@@ -480,25 +495,27 @@ class Group extends Drawable {
     }
 
     onDraw(ctx) {
-        this._drawables.forEach(d => d.draw(ctx))
-
         this._drawables.sort((d1, d2) => {
-            if (d1.depth < d2.depth) {
-                return 1;
-            } else if (d1.depth > d2.depth) {
-                return -1;
-            } else {
-                return 0;
+            if (d1.depth < d2.depth)
+                return 1
+            else if (d1.depth > d2.depth)
+                return -1
+            else {
+                if (d1._depthOrder > d2._depthOrder)
+                    return 1
+                else
+                    return -1
             }
         })
+
+        this._drawables.forEach(d => d.draw(ctx))
     }
 
     add(drawable) {
         drawable.parent = this
         drawable.remove = (_ =>this.remove(drawable)).bind(this)
 
-        //TODO: remove and fix sort
-        drawable.depth = this._depthCounter-=10
+        drawable._depthOrder = this._depthCounter++
 
         this._drawables.push(drawable)
         return drawable
@@ -506,7 +523,7 @@ class Group extends Drawable {
     
     remove(drawable) {
         delete drawable.remove
-        delete drawable.parent
+        drawable.parent = undefined
         this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
     }
 

@@ -366,7 +366,7 @@ class MainScene extends Scene.Events {
             this.loadingTotal ++;
         }
 
-        this.add(new Rectangle({ color: 'black', height: this.height, width: this.width }));
+        this.add(new Rectangle({ color: 'black', height: this.height, width: this.width, depth: 100 }));
         
         this.loadingText = this.add(new TextLine({ text: 'loading!', color: 'white', font: 'love', height: 40, x: 100, y: 100 }));
         this.inputText = this.add(new TextLine({ text: '', color: 'white', font: 'love', height: 40, x: 100, y: 200 }));
@@ -478,7 +478,7 @@ class MainScene extends Scene.Events {
         console.log('hi')
         this.scale.x = this.scale.y = 2
 
-        this.background = this.add(new WavySprite({ image: this.loading.background.img }));
+        this.background = this.add(new WavySprite({ image: this.loading.background.img, depth: 10 }));
         /*
         this.blush = this.add(new Sprite({ image: this.loading.blush.img }));
         this.bubblelarge = this.add(new Sprite({ image: this.loading.bubblelarge.img }));
@@ -512,10 +512,9 @@ class MainScene extends Scene.Events {
             { text: () => 'hey ' + player1Name + ' you don\'t look so bad yourself', side: 'right' },
             { text: () => 'Things are going well so far, don\'t mess this up. Remember: smiling or laughing in the presence of a romantic prospect is unattractive, remain serious at all costs', side: 'none', action: () => {
                 this.state = 'restaurantIntro';
-                this.dinnerbackground = this.add(new Sprite({ image: this.loading.dinnerbackground.img, x: this.width }));
-                this.dinnerbackground.depth = -61;
-                this.table = this.add(new Sprite({ image: this.loading.table.img, x: -200, y: 200 }));
-                this.tablecloth = this.add(new Sprite({ image: this.loading.tablecloth.img, x: -300, y: 190, shear: { x: 0.5, y: 0} }));
+                this.dinnerbackground = this.add(new Sprite({ image: this.loading.dinnerbackground.img, x: this.width, depth: 9 }));
+                this.table = this.add(new Sprite({ image: this.loading.table.img, x: -200, y: 200, depth: -1 }));
+                this.tablecloth = this.add(new Sprite({ image: this.loading.tablecloth.img, x: -300, y: 190, shear: { x: 0.5, y: 0}, depth: -3 }));
             }},
             { text: () => 'The DINNER DATE!', side: 'none', action: () => {
                 this.head.status = 'move';
@@ -550,13 +549,9 @@ class MainScene extends Scene.Events {
                 condition: () => time - this.doneFood > 50 && foodBadScore < 10  && (input.keyPressed('a') || input.keyPressed('s') || input.keyPressed('k') || input.keyPressed('l')),
                 action: () => { 
                     this.state = 'rainIntro';
-                    this.rainbackground = this.add(new Sprite({ image: this.loading.rainbackground.img, x: this.width }));
-                    this.rain1 = this.add(new Sprite({ image: this.loading.rain1.img}));
-                    this.rain2 = this.add(new Sprite({ image: this.loading.rain2.img}));
-
-                    this.rainbackground.depth = -62;
-                    this.rain1.depth = -63;
-                    this.rain2.depth = -64;
+                    this.rainbackground = this.add(new Sprite({ image: this.loading.rainbackground.img, x: this.width, depth: 8 }));
+                    this.rain1 = this.add(new Sprite({ image: this.loading.rain1.img, depth: 7 }));
+                    this.rain2 = this.add(new Sprite({ image: this.loading.rain2.img, depth: 6 }));
                 }
             },
             { text: () => 'The KISS IN THE RAIN!' },
@@ -690,7 +685,6 @@ class MainScene extends Scene.Events {
         if (this.spewFruit !== undefined) {
             if ((time - this.spewFruit) % 100 < 1) {
                 let a = this.add(new Food({ image: this.loading.apple.img, x: 260, y: 200 }));
-                a.depth = -145;
             }
         }
     }
@@ -705,7 +699,8 @@ class MainScene extends Scene.Events {
                     rightImage: this.loading.messageright.img,
                     text: this.dialogue[this.dialogueStep].text()
                 },
-                y: 245 + Math.random() * 10
+                y: 245 + Math.random() * 10,
+                depth: -100
             }));
         }
         if (this.dialogueBoxes[this.dialogueStep-1] !== undefined) {
@@ -736,6 +731,6 @@ const scene = new MainScene({
     height: c.height,
     width: c.width
 });
-
+scene.group.smooth = false;
 
 ocru.play(scene.group);
