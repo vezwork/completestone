@@ -1,6 +1,18 @@
 'use strict'
 
-export { Drawable, Rectangle, TextLine, SpriteSheet, Sprite, View, Group, LoadGroup, Scene }
+export { 
+    Drawable,
+    Rectangle,
+    TextLine,
+    SpriteSheet,
+    Sprite,
+    View,
+    Group,
+    LoadGroup,
+    Scene,
+
+    need
+}
 
 function * intercalate(...iterables) {
 	let iterators = iterables.map(iterable => iterable[Symbol.iterator]());
@@ -40,10 +52,8 @@ class Drawable {
                     color: undefined,
                     blur: 0
                 },
-                filter = 'none',
-                create = {}
+                filter = 'none'
             } = {}) {
-                
         this.x = x|0
         this.y = y|0
         this.width = width|0
@@ -304,16 +314,6 @@ class Drawable {
             y: _c*_4 + _d*_5 + this.y + centerOffsetHeight
         }
     }
-
-    static get Events() {
-        return class extends this {
-            constructor(opts = {}) {
-                super(...arguments)
-
-                this.onCreate(opts.create)
-            }
-        }
-    }
 }
 
 class Rectangle extends Drawable {
@@ -404,7 +404,7 @@ class SpriteSheet extends Drawable {
 
 class Sprite extends Drawable {
     constructor({ 
-        image, 
+        image,
         crop = { x: 0, y: 0, height: image.naturalHeight, width: image.naturalWidth }, 
         width = image.naturalWidth, 
         height = image.naturalHeight
@@ -418,8 +418,9 @@ class Sprite extends Drawable {
         if (opts.height === undefined) opts.height = image.naturalHeight
 
         super(opts)
-        
+
         this.image = image
+        
         this.crop = crop
     }
     
@@ -484,14 +485,48 @@ class View extends Drawable {
     }
 }
 
+const need = new Symbol() //classes must implement the [need]() method in order to request and receive depencies
+
 class Group extends Drawable {
+    [need]() {
+        return { need }
+    }
+
     constructor(opts) {
         super(opts)
 
-        //TODO: remove and fix sort
         this._depthCounter = 0
 
+        if (opts) {
+            this._provisions = new Map(opts[need])
+        } else {
+            this._provisions = new Map()
+        }
+        
+
         this._drawables = []
+    }
+
+    add(drawable) {
+        drawable.parent = this
+        drawable.remove = (_ =>this.remove(drawable)).bind(this)
+
+        drawable._depthOrder = this._depthCounter++
+
+        this._drawables.push(drawable)
+        return drawable
+    }
+
+    provide(resource) {
+        if (need in resource) {
+
+        }
+    }
+    
+    remove(drawable) {
+        delete drawable.remove
+        drawable.parent = undefined
+        this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
     }
 
     onDraw(ctx) {
@@ -509,22 +544,6 @@ class Group extends Drawable {
         })
 
         this._drawables.forEach(d => d.draw(ctx))
-    }
-
-    add(drawable) {
-        drawable.parent = this
-        drawable.remove = (_ =>this.remove(drawable)).bind(this)
-
-        drawable._depthOrder = this._depthCounter++
-
-        this._drawables.push(drawable)
-        return drawable
-    }
-    
-    remove(drawable) {
-        delete drawable.remove
-        drawable.parent = undefined
-        this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
     }
 
     //(touchee: Drawable, shouldBe?: T extends Drawable) => false | Drawable[]

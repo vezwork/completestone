@@ -31,8 +31,9 @@ function splitString(string = '', size) {
 	return string.match(re);
 }
 
-class Food extends Sprite.Events {
-    onCreate() {
+class Food extends Sprite {
+    constructor() {
+        super(...arguments)
         this.yacc = -7;
         this.xacc = (Math.random() - 0.5) * 10
 
@@ -61,9 +62,7 @@ class Food extends Sprite.Events {
 
 class WavySprite extends Sprite {
     constructor({ waviness = 1, waveSpeed = 1 } = {}) {
-        const opts = arguments[0] || {}
-
-        super(opts)
+        super(...arguments)
 
         this.waviness = waviness
         this.waveSpeed = waveSpeed
@@ -83,8 +82,9 @@ class WavySprite extends Sprite {
     }
 }
 
-class MessageBox extends Group.Events {
-    onCreate({ side = 'none', messageImage, leftImage, rightImage, text } = {}) {
+class MessageBox extends Group {
+    constructor({ create: { side = 'none', messageImage, leftImage, rightImage, text } = {}}={}) {
+        super(...arguments)
         this.scale.x = this.scale.y = 0;
 
         this.bubble = this.add(new Sprite({ image: messageImage }));
@@ -132,8 +132,9 @@ class MessageBox extends Group.Events {
     }
 }
 
-class Head extends Group.Events {
-    onCreate({ loading } = {}) {
+class Head extends Group {
+    constructor({ create: { loading } = {}} = {}) {
+        super(...arguments)
         this.head = this.add(new Sprite({ image: loading.head.img }));
 
         this.origin = {
@@ -199,8 +200,9 @@ class Head extends Group.Events {
     }
 }
 
-class Crab extends Group.Events {
-    onCreate({ loading } = {}) {
+class Crab extends Group {
+    constructor({ create: { loading } = {}}={}) {
+        super(...arguments)
         this.legleft1 = this.add(new Sprite({ image: loading.legleft1.img, x: -60, y: 70, origin: { x: 76, y: 12 } }));
         this.legleft2 = this.add(new Sprite({ image: loading.legleft2.img, x: -40, y: 92, origin: { x: 76, y: 12 }  }));
         this.legleft3 = this.add(new Sprite({ image: loading.legleft3.img, x: -10, y: 112, origin: { x: 50, y: 14 }  }));
@@ -317,8 +319,9 @@ class Crab extends Group.Events {
     }
 }
 
-class MainScene extends Scene.Events {
-    onCreate() {
+class MainScene extends Scene {
+    constructor() {
+        super(...arguments)
         this.loading = {
             head: this.load('./loveAssets/head.png'),
             crab: this.load('./loveAssets/crab.png'),
