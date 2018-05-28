@@ -87,11 +87,11 @@ class MessageBox extends Group {
         super(...arguments)
         this.scale.x = this.scale.y = 0;
 
-        this.bubble = this.add(new Sprite({ image: messageImage }));
+        this.bubble = this.add(Sprite, { image: messageImage });
         if (side === 'left') {
-            this.leftArrow = this.add(new Sprite({ image: leftImage, x: 40, y: -50 }));
+            this.leftArrow = this.add(Sprite, { image: leftImage, x: 40, y: -50 });
         } else if (side === 'right') {
-            this.rightArrow = this.add(new Sprite({ image: rightImage, x: 500, y: -50 }));
+            this.rightArrow = this.add(Sprite, { image: rightImage, x: 500, y: -50 });
         }
 
         this.origin.x = this.bubble.width/2;
@@ -102,7 +102,7 @@ class MessageBox extends Group {
 
         if (newText)
             newText.forEach((t, i) => {
-                this.add(new TextLine({ text: t, font: 'love', x: 50, y: i * 15 + 40, autoWidth: false, width: 500, height: 14 }));
+                this.add(TextLine, { text: t, font: 'love', x: 50, y: i * 15 + 40, autoWidth: false, width: 500, height: 14 });
             });
 
         this.closing = false;
@@ -135,7 +135,7 @@ class MessageBox extends Group {
 class Head extends Group {
     constructor({ create: { loading } = {}} = {}) {
         super(...arguments)
-        this.head = this.add(new Sprite({ image: loading.head.img }));
+        this.head = this.add(Sprite, { image: loading.head.img });
 
         this.origin = {
             x: this.head.width / 2,
@@ -144,7 +144,7 @@ class Head extends Group {
 
         this.status = 'idle';
 
-        this.umbrella = this.add(new Sprite({ image: loading.umbrella.img, opacity: 0, origin: { x: 100, y: 240 }, x: -30, y: -240 }));
+        this.umbrella = this.add(Sprite, { image: loading.umbrella.img, opacity: 0, origin: { x: 100, y: 240 }, x: -30, y: -240 });
     }
 
     onFrame() {

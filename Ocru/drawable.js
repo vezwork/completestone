@@ -485,42 +485,75 @@ class View extends Drawable {
     }
 }
 
-const need = new Symbol() //classes must implement the [need]() method in order to request and receive depencies
+const need = Symbol() //classes must implement the [need]() method in order to request and receive depencies
 
 class Group extends Drawable {
-    [need]() {
-        return { need }
-    }
-
     constructor(opts) {
         super(opts)
 
         this._depthCounter = 0
 
-        if (opts) {
-            this._provisions = new Map(opts[need])
-        } else {
-            this._provisions = new Map()
-        }
-        
+        this._provisions = new Map()
 
         this._drawables = []
     }
 
-    add(drawable) {
-        drawable.parent = this
-        drawable.remove = (_ =>this.remove(drawable)).bind(this)
+    add(drawable, opts) {
+        let drawableInstance
 
-        drawable._depthOrder = this._depthCounter++
+        if (drawable instanceof Drawable) {
+            //just plain old add and apply opts
+            Object.assign(drawable, opts)
+            drawableInstance = drawable
+        } else if (drawable.prototype instanceof Drawable) {
+            if (need in drawable) {
+                drawableInstance = this.inject(drawable, opts)
+            } else {
+                drawableInstance = new drawable(opts)
+            }
+            
+        }
 
-        this._drawables.push(drawable)
-        return drawable
+        drawableInstance.parent = this
+        drawableInstance.remove = () => this.remove(drawableInstance)
+
+        drawableInstance._depthOrder = this._depthCounter++
+
+        this._drawables.push(drawableInstance)
+        return drawableInstance
     }
 
-    provide(resource) {
-        if (need in resource) {
+    inject(Needy, opts) {
+        const optsWithDepencies = {}
 
+        const dependencies = Needy[need]()
+
+        for (const dependencyName in dependencies) {
+            let cur = this
+            while (cur) {
+                const maybeResolution = cur._provisions.get(dependencies[dependencyName])
+                if (maybeResolution !== undefined) {
+                    optsWithDepencies[dependencyName] = maybeResolution
+                    break
+                }
+
+                cur = this.parent
+            }
+
+            if (optsWithDepencies[dependencyName] === undefined) {
+                throw 'could not find dependency: ' + dependencyName
+            }
         }
+
+        return new Needy(Object.assign(optsWithDepencies, opts))
+    }
+
+    provide(resource, resourceKey=resource.prototype) {
+        if (need in resource) {
+            resource = inject(resource)
+        }
+
+        this._provisions.set(resourceKey, resource)
     }
     
     remove(drawable) {
