@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title>OCRU</title>
+        <style>
+            .main-header {
+                float: right;
+            }
+
+            .main-header__main-link {
+                display: inline-block;
+                margin: 0 20px;
+            }
+
+            .pi-button {
+                letter-spacing: 1px;
+                font-size: 12px;
+                display: inline-block;
+                position: relative;
+                border-radius: 2px;
+                overflow: hidden;
+                transition: 0.2s ease-out;
+                font-family: sans-serif;
+                cursor:pointer;
+                border: none;
+                padding: 12px 20px 12px 20px;
+                margin: 5px;
+                background-color: transparent;
+                text-align: center;
+                color: #444;
+            }
+
+            .pi-button:focus {
+                outline: none;
+            }
+
+            .pi-button:hover {
+                box-shadow: 0 3px 6px 0 rgba(0, 0, 0, 0.22), 0 4px 4px 0 rgba(0, 0, 0, 0.35);
+
+                color: #222;
+                text-decoration: none;
+                background-color: rgba(255, 255, 255, 0.6);
+            }
+
+            .pi-button:active {
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.44), 0 1px 1px 0 rgba(0, 0, 0, 0.68);
+            }
+
+
+            .pi-button:focus::before {
+                display: block;
+                height: 150px;
+                width: 150px;
+                top: -58px;
+                left: -10px;
+                opacity: 0;
+                content: "";
+                background: #AAA;
+                border-radius: 1000px;
+                position: absolute;
+                animation-name: fade;
+                animation-timing-function: ease-out;
+                animation-duration: 1s;
+                z-index: -2;
+            }
+
+            @keyframes fade {
+                0% {opacity: 1; transform: scale(0);}
+                50% {opacity: 1; transform: scale(1);}
+                100% {opacity: 0;}
+            }
+
+
+            .with-shadow {
+                box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.35), 0 1px 1px 0 rgba(0, 0, 0, 0.59);
+                background-color: rgba(255, 255, 255, 0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <header class="main-header">      
+            <ul>
+                <li class="main-header__main-link">Ocru</li>
+                <li class="main-header__main-link">Documentation</li>
+                <li class="main-header__main-link">Github</li>
+            </ul>
+        </header>
+        <div>
+            
+            <object data="ocru.svg" type="image/svg+xml">
+                <img src="ocru.png">
+            </object>
+            <button class="pi-button with-shadow">
+                Download (2kb)
+            </button>
+            <button class="pi-button">
+                Github
+            </button>
+        </div>
+        <section>
+            Sexy API
+            <button>
+                Read the Full Documentation
+            </button>
+        </section>
+        <section>
+            Project Feature
+        </section>
+        <section>
+            community
+        </section>
+        <footer>
+            Elliot Evans
+        </footer>
+
+
+        <div>
+            FEATURES:
+                + OCRU Open Source
+                + OCRU vs plain old canvas
+                + OCRU size
+                - OCRU modularity and extensibility (too in depth for promo website, will put in full documentation / contribution guide)
+                + OCRU simple API does not restrict power
+                + OCRU synchronous input API
+
+            WHY OCRU?
+                + create games
+                + create interactive media
+                + fun, easy, exciting API
+                + feature on ludum dare project
+                + community
+                + documentation
+                + chrome extension debugger
+
+            STORY:
+                quick links: OCRU, DOCUMENTATION, GITHUB
+                1. Name & Short Description & logo / hero
+                2. CTA Download (2kb), Github
+
+                3. Sexy API
+                - The simple Drawable example (compared to canvas?), learn more ->
+                - Synced Input, learn more ->
+                - (Create Games and other Interactive Media) Full Scene with collision detection, sprites, sounds, learn more ->
+                - Debugger?, download from chrome web store ->
+                4. full documentation link
+
+                5. Project feature
+                6. Community
+
+                footer: created by Elliot Evans
+
+                STEP 3 BREAKDOWN:
+                    unifying theme: mountain, swamp with bugs and animals, sticker book, block house, travel brochures, folding paper / origami, dogs, 
+                    unifying theme: atoms, chemical reactions, keyboard & mouse, trains in space
+                    1. simple drawing
+                    - "Easily draw ojects with rotation, blur, scale, position and more."
+                    2. input interactivity
+                    - "Make your objects interactive with the synchronous input API. Create Games and other Interactive Media."
+                    3. full power
+                    - "Compose your scenes with layers and groups. Detect collisions between objects, and use images and sound to bring your application to life."
+
+            WOW:
+                proximity interactivity on buttons
+                interactive animation that scrolls with the page and transforms based on the section
+        </div>
+    </body>
+</html>
