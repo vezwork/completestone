@@ -336,7 +336,7 @@ class Group extends Drawable {
     constructor(opts) {
         super(opts)
 
-        this._depthCounter = 0
+        this._depthCounter = 0 //want to replace this with a stable sort in onDraw at some point
 
         this._drawables = []
     }

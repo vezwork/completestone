@@ -1,11 +1,10 @@
 'use strict'
 
-import { Rectangle, Sprite, Drawable, TextLine, Group, Scene } from './Ocru/drawable.js'
-import { Ocru } from './Ocru/lib.js'
+import { Rectangle, Sprite, Drawable, TextLine, Group, Scene } from '../Ocru/drawable.js'
+import { Ocru } from '../Ocru/lib.js'
 
 const c = document.getElementById('canvas')
 const ocru = new Ocru(document.getElementById('canvas'), 60)
-const ctx = c.getContext('2d')
 document.getElementById('canvas').focus()
 const input = ocru.input
 
