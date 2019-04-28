@@ -21,7 +21,8 @@ class Drawable {
                     color: undefined,
                     blur: 0
                 },
-                filter = 'none'
+                filter = 'none',
+                batched = false
             } = {}) {
         this.x = x|0
         this.y = y|0
@@ -42,6 +43,13 @@ class Drawable {
         this.origin = origin
 
         this.depth = +depth
+
+        this.batched = !!batched
+        this._osCtx = undefined
+        //group stuff
+        this._depthCounter = 0 //want to replace this with a stable sort in onDraw at some point
+
+        this._drawables = []
     }
 
     onFrame() {}
@@ -81,10 +89,70 @@ class Drawable {
         //ctx.fillRect(0,0,this.width,this.height)
         //ctx.globalAlpha = this.opacity
 
-        this.onDraw(ctx)
+        
+        this._drawables.sort((d1, d2) => {
+            if (d1.depth < d2.depth)
+                return 1
+            else if (d1.depth > d2.depth)
+                return -1
+            else {
+                if (d1._depthOrder > d2._depthOrder)
+                    return 1
+                else
+                    return -1
+            }
+        })
+
+        if (this.batched) {
+            if (this._osCtx === undefined) {
+                const c = document.createElement('canvas')
+                c.width = this.width
+                c.height = this.height
+                this._osCtx = c.getContext('2d')
+            }
+
+            if (this.width !== this._osCtx.canvas.width) {
+                this._osCtx.canvas.width = this.width
+            }
+            if (this.height !== this._osCtx.canvas.height) {
+                this._osCtx.canvas.height = this.height
+            }
+
+            this._osCtx.clearRect(0, 0, this.width, this.height)
+            
+            this._drawables.forEach(d => d.draw(this._osCtx))
+            this.onDraw(this._osCtx)
+
+            ctx.drawImage(this._osCtx.canvas,0,0)
+        } else {
+            this._drawables.forEach(d => d.draw(ctx))
+            this.onDraw(ctx)
+        }
+
+        
 
         ctx.restore()
     }
+
+    //group methods
+    addChild(drawable) {
+        drawable.parent = this
+
+        drawable._depthOrder = this._depthCounter++
+
+        this._drawables.push(drawable)
+        return drawable
+    }
+
+    removeChild(drawable) {
+        drawable.parent = undefined
+        this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
+    }
+
+    abandonParent() {
+        this.parent.removeChild(this);
+    }
+    //end group methods
 
     * ancestorChains() {
         yield [this]
@@ -172,28 +240,6 @@ class Drawable {
         function sproj(a, b) {
             return (a.x*b.x + a.y*b.y) / Math.sqrt(b.x*b.x + b.y*b.y);
         }
-    }
-
-    //(touchee: Drawable, shouldBe?: T extends Drawable) => false | Drawable[]
-    //(touchee: T extends Drawable)                     => false | Drawable[]
-    isTouching(touchee, shouldBe) {
-        if (touchee instanceof Drawable) {
-            let isCollided
-            if (shouldBe) {
-                isCollided = this instanceof shouldBe && Drawable.touching(this, touchee) 
-            } else {
-                isCollided = Drawable.touching(this, touchee) 
-            }
-            return (isCollided)? [this] : false
-            
-        } else if (touchee.prototype instanceof Drawable){
-            let cur = this.parent
-            while(cur.parent !== undefined)
-                cur = cur.parent
-
-            return cur !== undefined && cur.isTouching(this, touchee)
-        }
-        throw new TypeError('ParameterError: touchee is not a valid collision object')
     }
 
     static transformPoints(drawableArray) {
@@ -292,12 +338,7 @@ class View extends Drawable {
     } = {}) {
         super(arguments[0])
         
-        this.subject = subject
-
-        const c = document.createElement('canvas')
-        c.width = this.width
-        c.height = this.height
-        this._osCtx = c.getContext('2d')
+        
     }
 
     set height(height) {
@@ -312,15 +353,6 @@ class View extends Drawable {
     }
     get width() { return this._width }
 
-    set subject(subject) {
-        if (subject) {
-            this._subject = subject
-            if (this._subject.parentViews)
-                this._subject.parentViews.push(this)
-            else 
-                this._subject.parentViews = [this]
-        }
-    }
     get subject() { return this._subject }
 
     onDraw(ctx) {
@@ -329,61 +361,5 @@ class View extends Drawable {
         this.subject.draw(this._osCtx)
         
         ctx.drawImage(this._osCtx.canvas,0,0)
-    }
-}
-
-class Group extends Drawable {
-    constructor(opts) {
-        super(opts)
-
-        this._depthCounter = 0 //want to replace this with a stable sort in onDraw at some point
-
-        this._drawables = []
-    }
-
-    add(drawable) {
-        drawable.parent = this
-        drawable.remove = (_ =>this.remove(drawable)).bind(this)
-
-        drawable._depthOrder = this._depthCounter++
-
-        this._drawables.push(drawable)
-        return drawable
-    }
-
-    remove(drawable) {
-        delete drawable.remove
-        drawable.parent = undefined
-        this._drawables = this._drawables.filter(listedDrawable => listedDrawable !== drawable)
-    }
-
-    onDraw(ctx) {
-        this._drawables.sort((d1, d2) => {
-            if (d1.depth < d2.depth)
-                return 1
-            else if (d1.depth > d2.depth)
-                return -1
-            else {
-                if (d1._depthOrder > d2._depthOrder)
-                    return 1
-                else
-                    return -1
-            }
-        })
-
-        this._drawables.forEach(d => d.draw(ctx))
-    }
-
-    //(touchee: Drawable, shouldBe?: T extends Drawable) => false | Drawable[]
-    isTouching(drawable, shouldBe) {
-        const touches = this._drawables.reduce((acc, otherDrawable) => {
-            const result = otherDrawable.isTouching(drawable, shouldBe)
-            if (!result) {
-                return acc
-            } else {
-                return acc.concat(result)
-            }
-        }, [])
-        return (touches.length > 0)? touches : false
     }
 }
